@@ -52,7 +52,7 @@ def run_jobs(curNode):
             for name, uri in alive:
                 if name != "Node:" + str(curNode.hash):
                     otherNode = Pyro4.Proxy(uri)
-                    print('try doing join')
+                    print('try doing join kkk')
                     curNode.join(otherNode)
                     print('join completed')
                     # tl.stop()
