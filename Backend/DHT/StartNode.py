@@ -12,6 +12,8 @@ args = parser.parse_args()
 
 
 def register_node(cur_node):
+    logger.info("Registering node...")
+
     daemon = Pyro4.Daemon()
     uri = daemon.register(cur_node)
 
@@ -21,16 +23,17 @@ def register_node(cur_node):
     else:
         cur_node.initialize(args.hash)
 
-    print("Node location", uri.location)
-    cur_node.debug()
+    logger.debug("Node location", uri.location)
+    logger.debug(cur_node.debug())
 
     with Pyro4.locateNS() as ns:
         ns.register("Node:" + str(cur_node.hash), uri)
-    print('requesting loop')
 
+    logger.info("Daemon Loop will run now")
     daemon.requestLoop()
 
 
 if __name__ == "__main__":
+    logger = Utils.init_logger("StartNode Log")
     curNode = Node()
     register_node(curNode)
