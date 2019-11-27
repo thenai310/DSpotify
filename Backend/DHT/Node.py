@@ -1,6 +1,6 @@
-import hashlib
 import Pyro4, time
 from random import randint
+from Backend.DHT.Utils import Utils
 
 LEN = 3 # number of bits in DHT
 MOD = 2 ** LEN
@@ -155,26 +155,3 @@ class Node:
             print("i =", i, self.to[i].hash)
 
         print("----------------------")
-
-class Utils:
-    @staticmethod
-    def on_interval(x: int, a: int, b: int):
-        """
-        Is x from a to b?
-
-        :param x: parameter to search
-        :param a: start of interval (inclusive)
-        :param b: end of interval (inclusive)
-        :return: Boolean
-        """
-
-        if a <= b:
-            return a <= x <= b
-
-        return Utils.on_interval(x, a, MOD - 1) or Utils.on_interval(x, 0, b)
-
-    @staticmethod
-    def get_hash(location: str):
-        h = hashlib.sha1(location.encode()).hexdigest()
-        h = int(h, 16)
-        return h

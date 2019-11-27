@@ -8,7 +8,6 @@ parser.add_argument("--st_time", default=1, type=int, help="How often stabilize 
 parser.add_argument("--ft_time", default=1, type=int, help="How often fix finger table indexes, default 1s")
 args = parser.parse_args()
 
-
 def get_alive_nodes():
     ns = Pyro4.locateNS()
     return list(ns.list(prefix="Node:").items())
