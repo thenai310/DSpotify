@@ -57,29 +57,21 @@ class Node:
 
         return self
 
-    def join(self, other):
+    def static_join(self, other):
         """
         Add node self based on info of other
         :param other: Node
         :return: None
         """
 
-        print("Node", self.__str__(), "joining the network....")
-        print("debugging every node, time : {}".format(time.ctime()))
-
-        # self.init_finger_table(other)
-        # self.update_others()
-
-        self.predecessor = self
-
-        print('Im here, hash of other:')
-        print(type(other))
-        print('---', other.debug())
-        self.to[0] = other.find_successor(self.hash)
-
-        print("Ok ok done!")
+        self.init_finger_table(other)
+        self.update_others()
 
         #move keys
+
+    def dynamic_join(self, other):
+        self.predecessor = self
+        self.to[0] = other.find_successor(self.hash)
 
     def init_finger_table(self, other):
         """
