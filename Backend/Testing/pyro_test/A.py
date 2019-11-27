@@ -8,7 +8,7 @@ with Pyro4.Daemon() as daemon:
 
     print(uri.location)
 
-    A.initialize(Utils.get_hash(uri.location))
+    A.initialize(NodeUtils.get_hash(uri.location))
 
     with Pyro4.locateNS() as ns:
         ns.register(str(A.hash), uri)

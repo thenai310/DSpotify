@@ -1,4 +1,5 @@
-from Backend.DHT.Node import *
+from Backend.DHT.Node import Node
+from Backend.DHT.Utils import Utils
 import argparse
 import sys
 import Pyro4
@@ -23,13 +24,13 @@ def register_node(cur_node):
     else:
         cur_node.initialize(args.hash)
 
-    logger.debug("Node location", uri.location)
+    logger.debug("Node location %s" % uri.location)
     logger.debug(cur_node.debug())
 
     with Pyro4.locateNS() as ns:
         ns.register("Node:" + str(cur_node.hash), uri)
 
-    logger.info("Daemon Loop will run now")
+    logger.info("Daemon Loop will run now ... Node is waiting for requests!")
     daemon.requestLoop()
 
 

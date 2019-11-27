@@ -1,9 +1,10 @@
-import Pyro4, time
+import Pyro4
 from random import randint
-from Backend.DHT.Utils import Utils
+import hashlib
 
-LEN = 3 # number of bits in DHT
+LEN = 3  # number of bits in DHT
 MOD = 2 ** LEN
+
 
 @Pyro4.expose
 class Node:
@@ -40,7 +41,7 @@ class Node:
         """
         x = self
 
-        while not Utils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
+        while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
             x = x.find_closest_pred(id)
 
         return x
@@ -52,7 +53,7 @@ class Node:
         :return: Node
         """
         for i in reversed(range(LEN)):
-            if Utils.on_interval(self.to[i].hash, self.hash, (id - 1) % MOD):
+            if NodeUtils.on_interval(self.to[i].hash, self.hash, (id - 1) % MOD):
                 return self.to[i]
 
         return self
@@ -84,7 +85,7 @@ class Node:
         self.to[0].predecessor = self
 
         for i in range(1, LEN):
-            if Utils.on_interval(self.start[i], self.hash, (self.to[i - 1].hash - 1) % MOD):
+            if NodeUtils.on_interval(self.start[i], self.hash, (self.to[i - 1].hash - 1) % MOD):
                 self.to[i] = self.to[i - 1]
 
             else: self.to[i] = other.find_successor(self.start[i])
@@ -96,7 +97,7 @@ class Node:
         """
         pw = 1
         for i in range(LEN):
-            p = self.find_antecessor((self.hash - pw + 1) % MOD) #check but i think is plus 1
+            p = self.find_antecessor((self.hash - pw + 1) % MOD)  #check but i think is plus 1
             p.update_finger_table(self, i)
             pw *= 2
 
@@ -107,7 +108,7 @@ class Node:
         :param i: position in fingertable
         :return: None
         """
-        if added.hash != self.hash and Utils.on_interval(added.hash, self.hash, (self.to[i].hash - 1) % MOD):
+        if added.hash != self.hash and NodeUtils.on_interval(added.hash, self.hash, (self.to[i].hash - 1) % MOD):
             self.to[i] = added
             p = self.predecessor
             p.update_finger_table(added, i)
@@ -119,7 +120,7 @@ class Node:
         """
         x = self.to[0].predecessor
 
-        if Utils.on_interval(x.hash, (self.hash + 1) % MOD, self.to[0].hash):
+        if NodeUtils.on_interval(x.hash, (self.hash + 1) % MOD, self.to[0].hash):
             self.to[0] = x
 
         self.to[0].notify(self)
@@ -130,7 +131,7 @@ class Node:
         :param other: None
         :return:
         """
-        if Utils.on_interval(other.hash, self.predecessor.hash, (self.hash - 1) % MOD):
+        if NodeUtils.on_interval(other.hash, self.predecessor.hash, (self.hash - 1) % MOD):
             self.predecessor = other
 
     def fix_to(self):
@@ -155,3 +156,27 @@ class Node:
             print("i =", i, self.to[i].hash)
 
         print("----------------------")
+
+
+class NodeUtils:
+    @staticmethod
+    def on_interval(x: int, a: int, b: int):
+        """
+        Is x from a to b?
+
+        :param x: parameter to search
+        :param a: start of interval (inclusive)
+        :param b: end of interval (inclusive)
+        :return: Boolean
+        """
+
+        if a <= b:
+            return a <= x <= b
+
+        return NodeUtils.on_interval(x, a, MOD - 1) or NodeUtils.on_interval(x, 0, b)
+
+    @staticmethod
+    def get_hash(location: str):
+        h = hashlib.sha1(location.encode()).hexdigest()
+        h = int(h, 16)
+        return h
