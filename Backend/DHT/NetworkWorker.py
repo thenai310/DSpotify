@@ -1,6 +1,7 @@
 from timeloop import Timeloop
 from datetime import timedelta
 import Pyro4
+from Pyro4.errors import *
 import argparse
 from Backend.DHT.Utils import Utils
 
@@ -46,8 +47,12 @@ def run_jobs():
         for name, uri in alive:
             logger.debug("Stabilizing node %s..." % name)
 
-            cur_node = Pyro4.Proxy(uri)
-            cur_node.stabilize()
+            try:
+                cur_node = Pyro4.Proxy(uri)
+                cur_node.stabilize()
+
+            except CommunicationError:
+                logger.error("It seems there have been some errors")
 
         logger.info("Done")
 
@@ -60,8 +65,12 @@ def run_jobs():
         for name, uri in alive:
             logger.debug("Fixing node %s..." % name)
 
-            cur_node = Pyro4.Proxy(uri)
-            cur_node.fix_to()
+            try:
+                cur_node = Pyro4.Proxy(uri)
+                cur_node.fix_to()
+
+            except CommunicationError:
+                logger.error("It seems there have been some errors")
 
             logger.debug("Done")
 
@@ -73,8 +82,12 @@ def run_jobs():
         alive = get_alive_nodes()
 
         for name, uri in alive:
-            cur_node = Pyro4.Proxy(uri)
-            logger.debug(Utils.debug_node(cur_node))
+            try:
+                cur_node = Pyro4.Proxy(uri)
+                logger.debug(Utils.debug_node(cur_node))
+
+            except CommunicationError:
+                logger.error("It seems there have been some errors")
 
     logger.info("Running jobs of stabilize and fix fingers...")
     tl.start(block=True)

@@ -48,16 +48,17 @@ class Node:
     def predecessor(self, predecessor):
         self._predecessor = predecessor
 
-    def initialize(self, h: int):
+    def initialize(self, h: int, proxy: Pyro4.Proxy):
         """
         :param h: hash of node
         """
         self.hash = h
 
         # fingertable data
-        self.to = [self] * LEN
+        # this is fingertable it contains Proxies for each node from
+        self.to = [proxy] * LEN
         self.start = [(self.hash + 2 ** i) % MOD for i in range(LEN)]
-        self.predecessor = self
+        self.predecessor = proxy # also proxy
 
         self._logger = Utils.init_logger('Node %d Log' % self.hash)
 
@@ -89,6 +90,7 @@ class Node:
         :param id: identifier
         :return: Node
         """
+
         for i in reversed(range(LEN)):
             if NodeUtils.on_interval(self.to[i].hash, (self.hash + 1) % MOD, (id - 1) % MOD):
                 return self.to[i]

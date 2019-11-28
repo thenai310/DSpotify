@@ -19,10 +19,10 @@ def register_node(cur_node):
     uri = daemon.register(cur_node)
 
     if args.hash is None:
-        cur_node.initialize(NodeUtils.get_hash(uri.location))
+        cur_node.initialize(NodeUtils.get_hash(uri.location), Pyro4.Proxy(uri))
 
     else:
-        cur_node.initialize(args.hash)
+        cur_node.initialize(args.hash, Pyro4.Proxy(uri))
 
     logger.debug("Node location %s" % uri.location)
 
