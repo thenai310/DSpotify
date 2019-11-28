@@ -36,13 +36,15 @@ def build_chord():
 def run_jobs():
     tl = Timeloop()
 
-    # @tl.job(timedelta(seconds=args.st_time))
+    @tl.job(timedelta(seconds=args.st_time))
     def stabilize():
         logger.info("Stabilizing all nodes...")
 
         alive = get_alive_nodes()
 
         for name, uri in alive:
+            logger.debug("Stabilizing node %s..." % name)
+
             cur_node = Pyro4.Proxy(uri)
             cur_node.stabilize()
 
@@ -55,10 +57,6 @@ def run_jobs():
         alive = get_alive_nodes()
 
         for name, uri in alive:
-            cur_node = Pyro4.Proxy(uri)
-            logger.debug(Utils.debug_node(cur_node))
-
-        for name, uri in alive:
             logger.debug("Fixing node %s..." % name)
 
             cur_node = Pyro4.Proxy(uri)
@@ -67,6 +65,15 @@ def run_jobs():
             logger.debug("Done")
 
         logger.info("Done")
+
+    @tl.job(timedelta(seconds=args.status))
+    def show_current_status():
+        # this is for debugging purposes
+        alive = get_alive_nodes()
+
+        for name, uri in alive:
+            cur_node = Pyro4.Proxy(uri)
+            logger.debug(Utils.debug_node(cur_node))
 
     logger.info("Running jobs of stabilize and fix fingers...")
     tl.start(block=True)
