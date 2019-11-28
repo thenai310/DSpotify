@@ -9,10 +9,42 @@ MOD = 2 ** LEN
 @Pyro4.expose
 class Node:
     def __init__(self):
-        self.hash = None
-        self.to = None
-        self.start = None
-        self.predecessor = None
+        self._hash = None
+        self._to = None
+        self._start = None
+        self._predecessor = None
+
+    @property
+    def hash(self):
+        return self._hash
+
+    @hash.setter
+    def hash(self, h):
+        self._hash = h
+
+    @property
+    def to(self):
+        return self._to
+
+    @to.setter
+    def to(self, to):
+        self._to = to
+
+    @property
+    def start(self):
+        return self._start
+
+    @start.setter
+    def start(self, start):
+        self._start = start
+
+    @property
+    def predecessor(self):
+        return self._predecessor
+
+    @predecessor.setter
+    def predecessor(self, predecessor):
+        self._predecessor = predecessor
 
     def initialize(self, h: int):
         """

@@ -22,7 +22,7 @@ def build_chord():
 
     logger.debug("Alive list")
     for name, uri in alive:
-        logger.debug(name, uri)
+        logger.debug("name=%s, uri=%s" % (name, uri))
 
     for i in range(1, len(alive)):
         cur_node = Pyro4.Proxy(alive[i][1])
