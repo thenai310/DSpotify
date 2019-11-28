@@ -8,7 +8,6 @@ sys.excepthook = Pyro4.util.excepthook
 
 parser = argparse.ArgumentParser(description="Node creation script")
 parser.add_argument("--hash", default=None, type=int, help="Hash value of a node, default is None")
-parser.add_argument("--sec", default=None, type=int, help="Seconds to wait before start processing jobs")
 args = parser.parse_args()
 
 
