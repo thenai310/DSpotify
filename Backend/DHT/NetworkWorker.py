@@ -7,6 +7,7 @@ from Backend.DHT.Utils import Utils
 parser = argparse.ArgumentParser(description="Network Worker")
 parser.add_argument("--st_time", default=1, type=int, help="How often stabilize each node, default 1s")
 parser.add_argument("--ft_time", default=1, type=int, help="How often fix finger table indexes, default 1s")
+parser.add_argument("--status_time", default=5, type=int, help="How often fix finger table indexes, default 5s")
 args = parser.parse_args()
 
 
@@ -66,7 +67,7 @@ def run_jobs():
 
         logger.info("Done")
 
-    @tl.job(timedelta(seconds=args.status))
+    @tl.job(timedelta(seconds=args.status_time))
     def show_current_status():
         # this is for debugging purposes
         alive = get_alive_nodes()
@@ -82,7 +83,8 @@ def run_jobs():
 if __name__ == "__main__":
     logger = Utils.init_logger("Network Worker Logger")
     logger.info("Network Worker Initialized")
-    logger.info("Stabilize frequency = %d, Fix fingers frequency = %d" % (args.st_time, args.ft_time))
+    logger.info("Stabilize frequency = %d, Fix fingers frequency = %d, Status Refreshing time = %d"
+                % (args.st_time, args.ft_time, args.status_time))
 
     build_chord()
     run_jobs()
