@@ -23,6 +23,7 @@ def build_chord():
     logger.debug("Alive list")
     for name, uri in alive:
         logger.debug("name=%s, uri=%s" % (name, uri))
+        logger.debug(Utils.debug_node(Pyro4.Proxy(uri)))
 
     for i in range(1, len(alive)):
         cur_node = Pyro4.Proxy(alive[i][1])
@@ -33,11 +34,9 @@ def build_chord():
 
 
 def run_jobs():
-    logger.info("Running jobs of stabilize and fix fingers...")
-
     tl = Timeloop()
 
-    @tl.job(timedelta(seconds=args.st_time))
+    # @tl.job(timedelta(seconds=args.st_time))
     def stabilize():
         logger.info("Stabilizing all nodes...")
 
@@ -51,9 +50,13 @@ def run_jobs():
 
     @tl.job(timedelta(seconds=args.ft_time))
     def fix_fingers():
-        logger.info("Stabilizing all nodes...")
+        logger.info("Fixing fingers...")
 
         alive = get_alive_nodes()
+
+        for name, uri in alive:
+            cur_node = Pyro4.Proxy(uri)
+            logger.debug(Utils.debug_node(cur_node))
 
         for name, uri in alive:
             cur_node = Pyro4.Proxy(uri)
@@ -61,10 +64,14 @@ def run_jobs():
 
         logger.info("Done")
 
+    logger.info("Running jobs of stabilize and fix fingers...")
+    tl.start(block=True)
+
 
 if __name__ == "__main__":
     logger = Utils.init_logger("Network Worker Logger")
     logger.info("Network Worker Initialized")
+    logger.info("Stabilize frequency = %d, Fix fingers frequency = %d" % (args.st_time, args.ft_time))
 
     build_chord()
     run_jobs()

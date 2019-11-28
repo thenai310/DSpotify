@@ -25,7 +25,6 @@ def register_node(cur_node):
         cur_node.initialize(args.hash)
 
     logger.debug("Node location %s" % uri.location)
-    logger.debug(cur_node.debug())
 
     with Pyro4.locateNS() as ns:
         ns.register("Node:" + str(cur_node.hash), uri)

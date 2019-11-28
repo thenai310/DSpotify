@@ -22,3 +22,20 @@ class Utils:
         logger.addHandler(ch)
 
         return logger
+
+    @staticmethod
+    def debug_node(node):  #recibe un Pyro4.Proxy
+        s = str.format("\nNode with hash = %d\n" % node.hash)
+
+        start = list(node.start)
+        to = list(node.to)
+
+        s += "Info on start entries\n"
+        for i in range(len(start)):
+            s += str.format("i = %d, start = %d\n" % (i, start[i]))
+
+        s += "Info on finger table entries\n"
+        for i in range(len(to)):
+            s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
+
+        return s
