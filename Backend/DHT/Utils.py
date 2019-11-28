@@ -1,5 +1,5 @@
 import logging
-
+from Pyro4.errors import *
 
 class Utils:
     @staticmethod
@@ -27,6 +27,12 @@ class Utils:
     def debug_node(node):  #recibe un Pyro4.Proxy
         s = str.format("\nNode with hash = %d\n" % node.hash)
 
+        try:
+            s += str.format("Predecessor hash = %d\n" % node.predecessor.hash)
+
+        except CommunicationError:
+            s += str.format("Predecessor hash = None (node down maybe?)\n")
+
         start = list(node.start)
         to = list(node.to)
 
@@ -36,6 +42,10 @@ class Utils:
 
         s += "Info on finger table entries\n"
         for i in range(len(to)):
-            s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
+            try:
+                s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
+
+            except CommunicationError:
+                s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
 
         return s

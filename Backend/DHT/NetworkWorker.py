@@ -50,11 +50,12 @@ def run_jobs():
             try:
                 cur_node = Pyro4.Proxy(uri)
                 cur_node.stabilize()
+                logger.debug("Done stabilize node h = %d" % cur_node.hash)
 
             except CommunicationError:
                 logger.error("It seems there have been some errors")
 
-        logger.info("Done")
+        logger.info("Done stabilizing nodes")
 
     @tl.job(timedelta(seconds=args.ft_time))
     def fix_fingers():
@@ -68,13 +69,12 @@ def run_jobs():
             try:
                 cur_node = Pyro4.Proxy(uri)
                 cur_node.fix_to()
+                logger.debug("Done fix fingers node h = %d" % cur_node.hash)
 
             except CommunicationError:
                 logger.error("It seems there have been some errors")
 
-            logger.debug("Done")
-
-        logger.info("Done")
+        logger.info("Done fixing fingers")
 
     @tl.job(timedelta(seconds=args.status_time))
     def show_current_status():
