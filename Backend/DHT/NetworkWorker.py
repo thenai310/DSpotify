@@ -59,8 +59,12 @@ def run_jobs():
             logger.debug(Utils.debug_node(cur_node))
 
         for name, uri in alive:
+            logger.debug("Fixing node %s..." % name)
+
             cur_node = Pyro4.Proxy(uri)
             cur_node.fix_to()
+
+            logger.debug("Done")
 
         logger.info("Done")
 

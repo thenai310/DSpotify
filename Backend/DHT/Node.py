@@ -1,6 +1,9 @@
 import Pyro4
-from random import randint
+import random
 import hashlib
+from Backend.DHT.Utils import Utils
+
+random.seed(123)
 
 LEN = 3  # number of bits in DHT
 MOD = 2 ** LEN
@@ -13,6 +16,7 @@ class Node:
         self._to = None
         self._start = None
         self._predecessor = None
+        self._logger = None
 
     @property
     def hash(self):
@@ -57,6 +61,8 @@ class Node:
         self.start = [(self.hash + 2 ** i) % MOD for i in range(LEN)]
         self.predecessor = self
 
+        self._logger = Utils.init_logger('Node %d Log' % self.hash)
+
     def find_successor(self, id: int):
         """
         Find succesor of identifier id
@@ -71,9 +77,13 @@ class Node:
         :param id: identifier
         :return: Node
         """
+
+        self._logger.debug("Finding antecessor of id = %d" % id)
+
         x = self
 
         while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
+            self._logger.debug("x = %d", x.hash)
             x = x.find_closest_pred(id)
 
         return x
@@ -171,7 +181,10 @@ class Node:
         fix to array
         :return: None
         """
-        i = randint(1, LEN - 1)
+        i = random.randint(1, LEN - 1)
+
+        self._logger.debug("fixing i = %d finger" % i)
+        self._logger.debug("finding succesor of value %d" % self.start[i])
         self.to[i] = self.find_successor(self.start[i])
 
     def __str__(self):
