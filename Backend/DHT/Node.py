@@ -3,8 +3,6 @@ import random
 import hashlib
 from Backend.DHT.Utils import Utils
 
-random.seed(123)
-
 LEN = 3  # number of bits in DHT
 MOD = 2 ** LEN
 
@@ -78,12 +76,9 @@ class Node:
         :return: Node
         """
 
-        self._logger.debug("Finding antecessor of id = %d" % id)
-
         x = self
 
         while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
-            self._logger.debug("x = %d", x.hash)
             x = x.find_closest_pred(id)
 
         return x
@@ -95,7 +90,7 @@ class Node:
         :return: Node
         """
         for i in reversed(range(LEN)):
-            if NodeUtils.on_interval(self.to[i].hash, self.hash, (id - 1) % MOD):
+            if NodeUtils.on_interval(self.to[i].hash, (self.hash + 1) % MOD, (id - 1) % MOD):
                 return self.to[i]
 
         return self
@@ -182,9 +177,6 @@ class Node:
         :return: None
         """
         i = random.randint(1, LEN - 1)
-
-        self._logger.debug("fixing i = %d finger" % i)
-        self._logger.debug("finding succesor of value %d" % self.start[i])
         self.to[i] = self.find_successor(self.start[i])
 
     def __str__(self):
