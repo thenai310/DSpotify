@@ -17,24 +17,6 @@ def get_alive_nodes():
     return list(ns.list(prefix="Node:").items())
 
 
-def build_chord():
-    logger.info("Building Chord...")
-
-    alive = get_alive_nodes()
-
-    logger.debug("Alive list")
-    for name, uri in alive:
-        logger.debug("name=%s, uri=%s" % (name, uri))
-        logger.debug(Utils.debug_node(Pyro4.Proxy(uri)))
-
-    for i in range(1, len(alive)):
-        cur_node = Pyro4.Proxy(alive[i][1])
-        prv_node = Pyro4.Proxy(alive[i - 1][1])
-        cur_node.static_join(prv_node)
-
-    logger.info("Ok just build chord with %d nodes" % len(alive))
-
-
 def run_jobs():
     tl = Timeloop()
 
@@ -99,5 +81,4 @@ if __name__ == "__main__":
     logger.info("Stabilize frequency = %d, Fix fingers frequency = %d, Status Refreshing time = %d"
                 % (args.st_time, args.ft_time, args.status_time))
 
-    build_chord()
     run_jobs()

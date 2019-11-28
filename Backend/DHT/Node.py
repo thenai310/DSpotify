@@ -110,7 +110,6 @@ class Node:
         #move keys
 
     def dynamic_join(self, other):
-        self.predecessor = self
         self.to[0] = other.find_successor(self.hash)
 
     def init_finger_table(self, other):
