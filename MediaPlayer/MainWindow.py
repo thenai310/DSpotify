@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(484, 871)
+        MainWindow.setFixedSize(454, 671)
         self.centralWidget = QtWidgets.QWidget(MainWindow)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(0)
@@ -127,6 +127,9 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "DSpotify"))
+        iconapp = QtGui.QIcon()
+        iconapp.addPixmap(QtGui.QPixmap("images/application-image.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        MainWindow.setWindowIcon(iconapp)
         self.currentTimeLabel.setText(_translate("MainWindow", "0:00"))
         self.totalTimeLabel.setText(_translate("MainWindow", "0:00"))
         self.menuFIle.setTitle(_translate("MainWindow", "File"))
