@@ -1,28 +1,66 @@
+import Pyro4
+import random
 import hashlib
-import Pyro4, time
-from random import randint
+from Backend.DHT.Utils import Utils
 
-LEN = 3 # number of bits in DHT
+LEN = 3  # number of bits in DHT
 MOD = 2 ** LEN
+
 
 @Pyro4.expose
 class Node:
     def __init__(self):
-        self.hash = None
-        self.to = None
-        self.start = None
-        self.predecessor = None
+        self._hash = None
+        self._to = None
+        self._start = None
+        self._predecessor = None
+        self._logger = None
 
-    def initialize(self, h: int):
+    @property
+    def hash(self):
+        return self._hash
+
+    @hash.setter
+    def hash(self, h):
+        self._hash = h
+
+    @property
+    def to(self):
+        return self._to
+
+    @to.setter
+    def to(self, to):
+        self._to = to
+
+    @property
+    def start(self):
+        return self._start
+
+    @start.setter
+    def start(self, start):
+        self._start = start
+
+    @property
+    def predecessor(self):
+        return self._predecessor
+
+    @predecessor.setter
+    def predecessor(self, predecessor):
+        self._predecessor = predecessor
+
+    def initialize(self, h: int, proxy: Pyro4.Proxy):
         """
         :param h: hash of node
         """
         self.hash = h
 
         # fingertable data
-        self.to = [self] * LEN
+        # this is fingertable it contains Proxies for each node from
+        self.to = [proxy] * LEN
         self.start = [(self.hash + 2 ** i) % MOD for i in range(LEN)]
-        self.predecessor = self
+        self.predecessor = proxy # also proxy
+
+        self._logger = Utils.init_logger('Node %d Log' % self.hash)
 
     def find_successor(self, id: int):
         """
@@ -38,9 +76,10 @@ class Node:
         :param id: identifier
         :return: Node
         """
+
         x = self
 
-        while not Utils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
+        while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
             x = x.find_closest_pred(id)
 
         return x
@@ -51,35 +90,27 @@ class Node:
         :param id: identifier
         :return: Node
         """
+
         for i in reversed(range(LEN)):
-            if Utils.on_interval(self.to[i].hash, self.hash, (id - 1) % MOD):
+            if NodeUtils.on_interval(self.to[i].hash, (self.hash + 1) % MOD, (id - 1) % MOD):
                 return self.to[i]
 
         return self
 
-    def join(self, other):
+    def static_join(self, other):
         """
         Add node self based on info of other
         :param other: Node
         :return: None
         """
 
-        print("Node", self.__str__(), "joining the network....")
-        print("debugging every node, time : {}".format(time.ctime()))
-
-        # self.init_finger_table(other)
-        # self.update_others()
-
-        self.predecessor = self
-
-        print('Im here, hash of other:')
-        print(type(other))
-        print('---', other.debug())
-        self.to[0] = other.find_successor(self.hash)
-
-        print("Ok ok done!")
+        self.init_finger_table(other)
+        self.update_others()
 
         #move keys
+
+    def dynamic_join(self, other):
+        self.to[0] = other.find_successor(self.hash)
 
     def init_finger_table(self, other):
         """
@@ -92,7 +123,7 @@ class Node:
         self.to[0].predecessor = self
 
         for i in range(1, LEN):
-            if Utils.on_interval(self.start[i], self.hash, (self.to[i - 1].hash - 1) % MOD):
+            if NodeUtils.on_interval(self.start[i], self.hash, (self.to[i - 1].hash - 1) % MOD):
                 self.to[i] = self.to[i - 1]
 
             else: self.to[i] = other.find_successor(self.start[i])
@@ -104,7 +135,7 @@ class Node:
         """
         pw = 1
         for i in range(LEN):
-            p = self.find_antecessor((self.hash - pw + 1) % MOD) #check but i think is plus 1
+            p = self.find_antecessor((self.hash - pw + 1) % MOD)  #check but i think is plus 1
             p.update_finger_table(self, i)
             pw *= 2
 
@@ -115,7 +146,7 @@ class Node:
         :param i: position in fingertable
         :return: None
         """
-        if added.hash != self.hash and Utils.on_interval(added.hash, self.hash, (self.to[i].hash - 1) % MOD):
+        if added.hash != self.hash and NodeUtils.on_interval(added.hash, self.hash, (self.to[i].hash - 1) % MOD):
             self.to[i] = added
             p = self.predecessor
             p.update_finger_table(added, i)
@@ -127,7 +158,7 @@ class Node:
         """
         x = self.to[0].predecessor
 
-        if Utils.on_interval(x.hash, (self.hash + 1) % MOD, self.to[0].hash):
+        if NodeUtils.on_interval(x.hash, (self.hash + 1) % MOD, self.to[0].hash):
             self.to[0] = x
 
         self.to[0].notify(self)
@@ -138,7 +169,7 @@ class Node:
         :param other: None
         :return:
         """
-        if Utils.on_interval(other.hash, self.predecessor.hash, (self.hash - 1) % MOD):
+        if NodeUtils.on_interval(other.hash, self.predecessor.hash, (self.hash - 1) % MOD):
             self.predecessor = other
 
     def fix_to(self):
@@ -146,7 +177,7 @@ class Node:
         fix to array
         :return: None
         """
-        i = randint(1, LEN - 1)
+        i = random.randint(1, LEN - 1)
         self.to[i] = self.find_successor(self.start[i])
 
     def __str__(self):
@@ -164,7 +195,8 @@ class Node:
 
         print("----------------------")
 
-class Utils:
+
+class NodeUtils:
     @staticmethod
     def on_interval(x: int, a: int, b: int):
         """
@@ -179,7 +211,7 @@ class Utils:
         if a <= b:
             return a <= x <= b
 
-        return Utils.on_interval(x, a, MOD - 1) or Utils.on_interval(x, 0, b)
+        return NodeUtils.on_interval(x, a, MOD - 1) or NodeUtils.on_interval(x, 0, b)
 
     @staticmethod
     def get_hash(location: str):

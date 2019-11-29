@@ -53,7 +53,7 @@ class Node:
         :return: Node
         """
         for i in reversed(range(LEN)):
-            if Utils.on_interval(self.to[i].hash, self.hash, (id - 1) % MOD):
+            if Utils.on_interval(self.to[i].hash, (self.hash + 1) % MOD, (id - 1) % MOD):
                 return self.to[i]
 
         return self
