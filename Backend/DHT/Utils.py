@@ -44,7 +44,11 @@ class Utils:
         s += "Info on finger table entries\n"
         for i in range(len(to)):
             try:
-                s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
+                if to[i] is None:
+                    s += str.format("i = %d, hash = None\n" % i)
+
+                else:
+                    s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
 
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)

@@ -1,6 +1,8 @@
 import Pyro4
 import random
 import hashlib
+import copy
+from Pyro4.errors import *
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
 
@@ -55,6 +57,9 @@ class Node:
     def succesor_list(self, succesor_list):
         self._succesor_list = succesor_list
 
+    def get_succesor(self):
+        return self.succesor_list[0]
+
     def initialize(self, h: int, proxy: Pyro4.Proxy):
         """
         :param h: hash of node
@@ -64,9 +69,10 @@ class Node:
         # fingertable data
         # this is fingertable it contains Proxies for each node from
         self.to = [proxy] * LEN
+        self.to[0] = None
+
         self.start = [(self.hash + 2 ** i) % MOD for i in range(LEN)]
 
-        # also proxy
         self.predecessor = proxy
 
         # succesor list
@@ -80,7 +86,7 @@ class Node:
         :param id: identifier
         :return: Node
         """
-        return self.find_antecessor(id).to[0]
+        return self.find_antecessor(id).get_succesor()
 
     def find_antecessor(self, id: int):
         """
@@ -91,7 +97,7 @@ class Node:
 
         x = self
 
-        while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.to[0].hash):
+        while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.get_succesor().hash):
             x = x.find_closest_pred(id)
 
         return x
@@ -104,29 +110,64 @@ class Node:
         """
 
         for i in reversed(range(LEN)):
-            if NodeUtils.on_interval(self.to[i].hash, (self.hash + 1) % MOD, (id - 1) % MOD):
-                return self.to[i]
+            if i == 0:
+                node = self.get_succesor()
+
+            else:
+                node = self.to[i]
+
+            if NodeUtils.between(node.hash, self.hash, id):
+                return node
 
         return self
 
     def dynamic_join(self, other):
-        self.to[0] = other.find_successor(self.hash)
+        new_succ = other.find_successor(self.hash)
+        succ_list = new_succ.succesor_list.copy()
+        self.succesor_list = [new_succ] + succ_list[:-1]
 
     def stabilize(self):
         """
         fix succesor of node self
         :return: None
         """
-        x = self.to[0].predecessor
 
-        if NodeUtils.on_interval(x.hash, (self.hash + 1) % MOD, self.to[0].hash):
-            self.to[0] = x
+        self._logger.debug(Utils.debug_node(self))
 
-        self.to[0].notify(self)
+        for i in range(SUCC_LIST_LEN):
+            try:
+                cur_node = self.succesor_list[i]
+            except CommunicationError:
+                continue
+
+            new_succ = cur_node.predecessor
+
+            succ_list = cur_node.succesor_list.copy()
+            succ_list = [cur_node] + succ_list[:-1]
+
+            try:
+                self._logger.debug("new succ hash = %d, self hash = %d, cur hash = %d" % (new_succ.hash, self.hash, cur_node.hash))
+                self._logger.debug(Utils.debug_node(new_succ))
+
+                if NodeUtils.between(new_succ.hash, self.hash, cur_node.hash):
+                    succ_list = new_succ.succesor_list.copy()
+                    succ_list = [new_succ] + succ_list[:-1]
+
+            except CommunicationError:
+                pass
+
+            self.succesor_list = succ_list
+
+            try:
+                cur_node.notify(self)
+            except CommunicationError:
+                pass
+
+            break
 
     def notify(self, other):
         """
-        check if node other is predecessor of self
+        check if node new_pred is predecessor of self
         :param other: None
         :return:
         """
@@ -173,6 +214,14 @@ class NodeUtils:
             return a <= x <= b
 
         return NodeUtils.on_interval(x, a, MOD - 1) or NodeUtils.on_interval(x, 0, b)
+
+    @staticmethod
+    def between(x: int, a: int, b: int):
+        if a < b:
+            return a < x < b
+
+        else:
+            return a < x or x < b
 
     @staticmethod
     def get_hash(location: str):

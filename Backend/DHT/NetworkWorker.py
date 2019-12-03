@@ -29,10 +29,7 @@ def build_chord():
         logger.debug("name=%s, uri=%s" % (name, uri))
         logger.debug(Utils.debug_node(Pyro4.Proxy(uri)))
 
-    for i in range(1, len(alive)):
-        cur_node = Pyro4.Proxy(alive[i][1])
-        prv_node = Pyro4.Proxy(alive[i - 1][1])
-        cur_node.dynamic_join(prv_node)
+    #no need for doing explicit join, only need succesor list correctly initialized
 
     logger.info("Ok just build chord with %d nodes" % len(alive))
     logger.info("Parameters of Chord: LEN = %d, MOD = %d, SUCC_LIST_LEN = %d" % (LEN, MOD, SUCC_LIST_LEN))
@@ -42,6 +39,8 @@ def build_chord():
 
     for i in range(len(alive)):
         cur_node = Pyro4.Proxy(alive[i][1])
+        cur_node.predecessor = Pyro4.Proxy(alive[i - 1][1])
+
         j = i
 
         arr = [None] * SUCC_LIST_LEN
