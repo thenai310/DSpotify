@@ -97,59 +97,8 @@ class Node:
 
         return self
 
-    def static_join(self, other):
-        """
-        Add node self based on info of other
-        :param other: Node
-        :return: None
-        """
-
-        self.init_finger_table(other)
-        self.update_others()
-
-        #move keys
-
     def dynamic_join(self, other):
         self.to[0] = other.find_successor(self.hash)
-
-    def init_finger_table(self, other):
-        """
-        Initialize finger table of self based on correct data of other
-        :param other: Node
-        :return: None
-        """
-        self.to[0] = other.find_successor(self.to[0].start[0])
-        self.predecessor = self.to[0].predecessor
-        self.to[0].predecessor = self
-
-        for i in range(1, LEN):
-            if NodeUtils.on_interval(self.start[i], self.hash, (self.to[i - 1].hash - 1) % MOD):
-                self.to[i] = self.to[i - 1]
-
-            else: self.to[i] = other.find_successor(self.start[i])
-
-    def update_others(self):
-        """
-        Update all nodes such that self must be in their fingertable
-        :return: None
-        """
-        pw = 1
-        for i in range(LEN):
-            p = self.find_antecessor((self.hash - pw + 1) % MOD)  #check but i think is plus 1
-            p.update_finger_table(self, i)
-            pw *= 2
-
-    def update_finger_table(self, added, i):
-        """
-        Update fingertable[i] of node self
-        :param added: new node added
-        :param i: position in fingertable
-        :return: None
-        """
-        if added.hash != self.hash and NodeUtils.on_interval(added.hash, self.hash, (self.to[i].hash - 1) % MOD):
-            self.to[i] = added
-            p = self.predecessor
-            p.update_finger_table(added, i)
 
     def stabilize(self):
         """
