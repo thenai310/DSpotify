@@ -62,6 +62,11 @@ def run_jobs():
         alive = get_alive_nodes()
 
         for name, uri in alive:
+            try:
+                Pyro4.Proxy(uri).ping()
+            except Exception:
+                continue
+
             logger.debug("Stabilizing node %s..." % name)
 
             try:
@@ -70,7 +75,7 @@ def run_jobs():
                 logger.debug("Done stabilize node h = %d" % cur_node.hash)
 
             except CommunicationError:
-                logger.error("It seems there have been some errors")
+                logger.error("it seems there have been some errors")
 
         logger.info("Done stabilizing nodes")
 
@@ -81,6 +86,11 @@ def run_jobs():
         alive = get_alive_nodes()
 
         for name, uri in alive:
+            try:
+                Pyro4.Proxy(uri).ping()
+            except Exception:
+                continue
+
             logger.debug("Fixing node %s..." % name)
 
             try:
@@ -99,6 +109,11 @@ def run_jobs():
         alive = get_alive_nodes()
 
         for name, uri in alive:
+            try:
+                Pyro4.Proxy(uri).ping()
+            except Exception:
+                continue
+
             try:
                 cur_node = Pyro4.Proxy(uri)
                 logger.debug(Utils.debug_node(cur_node))

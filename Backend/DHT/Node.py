@@ -16,6 +16,7 @@ class Node:
         self._predecessor = None
         self._logger = None
         self._succesor_list = None
+        self._proxy = None
 
     @property
     def hash(self):
@@ -57,6 +58,17 @@ class Node:
     def succesor_list(self, succesor_list):
         self._succesor_list = succesor_list
 
+    @property
+    def proxy(self):
+        return self._proxy
+
+    @proxy.setter
+    def proxy(self, proxy):
+        self._proxy = proxy
+
+    def ping(self):
+        return True
+
     def get_succesor(self):
         return self.succesor_list[0]
 
@@ -77,6 +89,8 @@ class Node:
 
         # succesor list
         self.succesor_list = [None] * SUCC_LIST_LEN
+
+        self.proxy = proxy
 
         self._logger = Utils.init_logger('Node %d Log' % self.hash)
 
@@ -110,16 +124,30 @@ class Node:
         """
 
         for i in reversed(range(LEN)):
-            if i == 0:
-                node = self.get_succesor()
+            try:
+                if i == 0:
+                    node = self.get_succesor()
 
-            else:
-                node = self.to[i]
+                else:
+                    node = self.to[i]
 
-            if NodeUtils.between(node.hash, self.hash, id):
-                return node
+                if NodeUtils.between(node.hash, self.hash, id):
+                    return node
 
-        return self
+            except CommunicationError:
+                pass
+
+        for i in self.succesor_list:
+            try:
+                node = self.succesor_list[i]
+
+                if NodeUtils.between(node.hash, self.hash, id):
+                    return node
+
+            except CommunicationError:
+                pass
+
+        return self.proxy
 
     def dynamic_join(self, other):
         new_succ = other.find_successor(self.hash)
@@ -132,23 +160,19 @@ class Node:
         :return: None
         """
 
-        self._logger.debug(Utils.debug_node(self))
-
         for i in range(SUCC_LIST_LEN):
             try:
-                cur_node = self.succesor_list[i]
+                self.succesor_list[i].ping()
             except CommunicationError:
                 continue
 
+            cur_node = self.succesor_list[i]
             new_succ = cur_node.predecessor
 
             succ_list = cur_node.succesor_list.copy()
             succ_list = [cur_node] + succ_list[:-1]
 
             try:
-                self._logger.debug("new succ hash = %d, self hash = %d, cur hash = %d" % (new_succ.hash, self.hash, cur_node.hash))
-                self._logger.debug(Utils.debug_node(new_succ))
-
                 if NodeUtils.between(new_succ.hash, self.hash, cur_node.hash):
                     succ_list = new_succ.succesor_list.copy()
                     succ_list = [new_succ] + succ_list[:-1]
@@ -158,8 +182,12 @@ class Node:
 
             self.succesor_list = succ_list
 
+            self._logger.debug("i = %d" % i)
+            self._logger.debug("first live succesor of self is node h = %d" % succ_list[0].hash)
+            self._logger.debug("try to notify")
+
             try:
-                cur_node.notify(self)
+                succ_list[0].notify(self.proxy)
             except CommunicationError:
                 pass
 
@@ -171,7 +199,7 @@ class Node:
         :param other: None
         :return:
         """
-        if NodeUtils.on_interval(other.hash, self.predecessor.hash, (self.hash - 1) % MOD):
+        if NodeUtils.between(other.hash, self.predecessor.hash, self.hash):
             self.predecessor = other
 
     def fix_to(self):
