@@ -1,5 +1,6 @@
 import logging
 from Pyro4.errors import *
+from Backend.DHT.Settings import *
 
 class Utils:
     @staticmethod
@@ -44,6 +45,20 @@ class Utils:
         for i in range(len(to)):
             try:
                 s += str.format("i = %d, hash = %d\n" % (i, to[i].hash))
+
+            except CommunicationError:
+                s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
+
+        succesor_list = node.succesor_list
+
+        s += "Info on succesor list\n"
+        for i in range(SUCC_LIST_LEN):
+            try:
+                if succesor_list[i] is None:
+                    s += str.format("i = %d, hash = None\n" % i)
+
+                else:
+                    s += str.format("i = %d, hash = %d\n" % (i, succesor_list[i].hash))
 
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)

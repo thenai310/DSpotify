@@ -5,6 +5,7 @@ from Pyro4.errors import *
 import argparse
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
+import copy
 
 parser = argparse.ArgumentParser(description="Network Worker")
 parser.add_argument("--st_time", default=1, type=int, help="How often stabilize each node, default 1s")
@@ -38,6 +39,18 @@ def build_chord():
 
     if SUCC_LIST_LEN >= len(alive):
         logger.warning("Insufficient number of nodes to fully populate succesor lists, correctness is not guaranteed!")
+
+    for i in range(len(alive)):
+        cur_node = Pyro4.Proxy(alive[i][1])
+        j = i
+
+        arr = [None] * SUCC_LIST_LEN
+
+        for t in range(SUCC_LIST_LEN):
+            j = (j + 1) % len(alive)
+            arr[t] = Pyro4.Proxy(alive[j][1])
+
+        cur_node.succesor_list = arr
 
 
 def run_jobs():

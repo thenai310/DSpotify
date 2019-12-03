@@ -5,4 +5,4 @@ LEN = 3
 MOD = 2 ** LEN
 
 # len of succesor list, note that SUCC_LIST_LEN < MOD
-SUCC_LIST_LEN = 4
+SUCC_LIST_LEN = 3

@@ -70,7 +70,7 @@ class Node:
         self.predecessor = proxy
 
         # succesor list
-        # self.succesor_list =
+        self.succesor_list = [None] * SUCC_LIST_LEN
 
         self._logger = Utils.init_logger('Node %d Log' % self.hash)
 
