@@ -9,6 +9,7 @@ sys.excepthook = Pyro4.util.excepthook
 
 parser = argparse.ArgumentParser(description="Node creation script")
 parser.add_argument("--hash", default=None, type=int, help="Hash value of a node, default is None")
+parser.add_argument("--auto_con", default=False, type=bool, help="Can node connect automatically to DHT, default is False")
 args = parser.parse_args()
 
 
@@ -50,7 +51,8 @@ def register_node(cur_node):
     with Pyro4.locateNS() as ns:
         ns.register("Node:" + str(cur_node.hash), uri)
 
-    auto_connect(ns, cur_node)
+    if args.auto_con:
+        auto_connect(ns, cur_node)
 
     logger.info("Daemon Loop will run now ... Node is waiting for requests!")
     daemon.requestLoop()

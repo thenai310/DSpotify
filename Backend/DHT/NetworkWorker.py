@@ -4,6 +4,7 @@ import Pyro4
 from Pyro4.errors import *
 import argparse
 from Backend.DHT.Utils import Utils
+from Backend.DHT.Settings import *
 
 parser = argparse.ArgumentParser(description="Network Worker")
 parser.add_argument("--st_time", default=1, type=int, help="How often stabilize each node, default 1s")
@@ -15,6 +16,28 @@ args = parser.parse_args()
 def get_alive_nodes():
     ns = Pyro4.locateNS()
     return list(ns.list(prefix="Node:").items())
+
+
+def build_chord():
+    logger.info("Building Chord...")
+
+    alive = get_alive_nodes()
+
+    logger.debug("Alive list")
+    for name, uri in alive:
+        logger.debug("name=%s, uri=%s" % (name, uri))
+        logger.debug(Utils.debug_node(Pyro4.Proxy(uri)))
+
+    for i in range(1, len(alive)):
+        cur_node = Pyro4.Proxy(alive[i][1])
+        prv_node = Pyro4.Proxy(alive[i - 1][1])
+        cur_node.dynamic_join(prv_node)
+
+    logger.info("Ok just build chord with %d nodes" % len(alive))
+    logger.info("Parameters of Chord: LEN = %d, MOD = %d, SUCC_LIST_LEN = %d" % (LEN, MOD, SUCC_LIST_LEN))
+
+    if SUCC_LIST_LEN >= len(alive):
+        logger.warning("Insufficient number of nodes to fully populate succesor lists, correctness is not guaranteed!")
 
 
 def run_jobs():
@@ -81,4 +104,5 @@ if __name__ == "__main__":
     logger.info("Stabilize frequency = %d, Fix fingers frequency = %d, Status Refreshing time = %d"
                 % (args.st_time, args.ft_time, args.status_time))
 
+    build_chord()
     run_jobs()
