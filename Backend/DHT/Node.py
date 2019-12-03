@@ -2,9 +2,7 @@ import Pyro4
 import random
 import hashlib
 from Backend.DHT.Utils import Utils
-
-LEN = 3  # number of bits in DHT
-MOD = 2 ** LEN
+from Backend.DHT.Settings import *
 
 
 @Pyro4.expose
