@@ -41,17 +41,15 @@ class Utils:
         s = str.format("\nNode with hash = %d\n" % node.hash)
 
         try:
-            s += str.format("Predecessor hash = %d\n" % node.predecessor.hash)
+            if node.predecessor is None:
+                s += str.format("Predecessor hash = None\n")
+            else:
+                s += str.format("Predecessor hash = %d\n" % node.predecessor.hash)
 
         except CommunicationError:
             s += str.format("Predecessor hash = None (node down maybe?)\n")
 
-        start = list(node.start)
-        to = list(node.to)
-
-        s += "Info on start entries\n"
-        for i in range(len(start)):
-            s += str.format("i = %d, start = %d\n" % (i, start[i]))
+        to = list(node.finger)
 
         s += "Info on finger table entries\n"
         for i in range(len(to)):
@@ -65,16 +63,16 @@ class Utils:
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
 
-        succesor_list = node.succesor_list
+        successor_list = node.successor_list
 
-        s += "Info on succesor list\n"
-        for i in range(SUCC_LIST_LEN):
+        s += "Info on successor list\n"
+        for i in range(len(successor_list)):
             try:
-                if succesor_list[i] is None:
+                if successor_list[i] is None:
                     s += str.format("i = %d, hash = None\n" % i)
 
                 else:
-                    s += str.format("i = %d, hash = %d\n" % (i, succesor_list[i].hash))
+                    s += str.format("i = %d, hash = %d\n" % (i, successor_list[i].hash))
 
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)

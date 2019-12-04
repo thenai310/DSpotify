@@ -3,7 +3,10 @@ from datetime import timedelta
 import Pyro4
 from Pyro4.errors import *
 import argparse
+import sys
 from Backend.DHT.Utils import Utils
+
+sys.excepthook = Pyro4.util.excepthook
 
 parser = argparse.ArgumentParser(description="Network Worker")
 parser.add_argument("--st_time", default=1, type=int, help="How often stabilize each node, default 1s")
@@ -54,45 +57,34 @@ def run_jobs():
 
         logger.info("done, joined %d nodes" % cnt)
 
-    # @tl.job(timedelta(seconds=args.st_time))
-    def stabilize():
-        logger.info("Stabilizing all nodes...")
+    @tl.job(timedelta(seconds=args.st_time))
+    def jobs():
+        logger.info("Running stabilizing, fix_fingers and update successors on all nodes...")
 
         alive = get_alive_nodes()
 
         for name, uri in alive:
-            logger.debug("Stabilizing node %s..." % name)
-
             try:
                 cur_node = Pyro4.Proxy(uri)
+
+                logger.debug("Stabilizing node %s..." % name)
                 cur_node.stabilize()
                 logger.debug("Done stabilize node h = %d" % cur_node.hash)
 
-            except CommunicationError:
-                logger.error("It seems there have been some errors")
-
-        logger.info("Done stabilizing nodes")
-
-    # @tl.job(timedelta(seconds=args.ft_time))
-    def fix_fingers():
-        logger.info("Fixing fingers...")
-
-        alive = get_alive_nodes()
-
-        for name, uri in alive:
-            logger.debug("Fixing node %s..." % name)
-
-            try:
-                cur_node = Pyro4.Proxy(uri)
-                cur_node.fix_to()
+                logger.debug("Fixing node %s..." % name)
+                cur_node.fix_fingers()
                 logger.debug("Done fix fingers node h = %d" % cur_node.hash)
 
+                logger.debug("Updating successors of node h = %d" % cur_node.hash)
+                cur_node.update_successor_list()
+                logger.debug("Done updating successors list")
+
             except CommunicationError:
                 logger.error("It seems there have been some errors")
 
-        logger.info("Done fixing fingers")
+        logger.info("Done running all maintenance tasks")
 
-    # @tl.job(timedelta(seconds=args.status_time))
+    @tl.job(timedelta(seconds=args.status_time))
     def show_current_status():
         # this is for debugging purposes
         alive = get_alive_nodes()
@@ -105,7 +97,7 @@ def run_jobs():
             except CommunicationError:
                 logger.error("It seems there have been some errors")
 
-    # logger.info("Running jobs of stabilize and fix fingers...")
+    logger.info("Running jobs of stabilize and fix fingers...")
     tl.start(block=True)
 
 
