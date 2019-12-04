@@ -1,22 +1,25 @@
 import Pyro4
 import random
 import hashlib
-import copy
-from Pyro4.errors import *
+import sys
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
+from Pyro4.errors import *
 
+sys.excepthook = Pyro4.util.excepthook
 
 @Pyro4.expose
 class Node:
     def __init__(self):
         self._hash = None
-        self._to = None
-        self._start = None
+        self._finger = None
         self._predecessor = None
         self._logger = None
         self._succesor_list = None
         self._proxy = None
+
+        # is node added to DHT
+        self._added = False
 
     @property
     def hash(self):
@@ -27,20 +30,12 @@ class Node:
         self._hash = h
 
     @property
-    def to(self):
-        return self._to
+    def finger(self):
+        return self._finger
 
-    @to.setter
-    def to(self, to):
-        self._to = to
-
-    @property
-    def start(self):
-        return self._start
-
-    @start.setter
-    def start(self, start):
-        self._start = start
+    @finger.setter
+    def finger(self, finger):
+        self._finger = finger
 
     @property
     def predecessor(self):
@@ -59,197 +54,214 @@ class Node:
         self._succesor_list = succesor_list
 
     @property
-    def proxy(self):
-        return self._proxy
+    def added(self):
+        return self._added
 
-    @proxy.setter
-    def proxy(self, proxy):
+    @added.setter
+    def added(self, added):
+        self._added = added
+
+    def initialize(self, hash: int, proxy: Pyro4.Proxy) -> None:
+        """
+        Initialize node self
+        :param hash: hash of node
+        :param proxy: proxy that identifies node
+        :return: None
+        """
+        self.hash = hash
         self._proxy = proxy
 
+        self.finger = [None] * LOG_LEN
+        self.succesor_list = [None] * SUCC_LIST_LEN
+        self.predecessor = None
+
+        self._logger = Utils.init_logger("Node h=%d Log" % self.id())
+
+        self.finger[0] = proxy
+
     def ping(self):
+        """
+        Is node self alive
+        :return: bool
+        """
         return True
 
-    def get_succesor(self):
-        return self.succesor_list[0]
-
-    def initialize(self, h: int, proxy: Pyro4.Proxy):
+    def id(self, off: int = 0) -> int:
         """
-        :param h: hash of node
+        Returns id of a self + some offset off
+        :param off: offset to add
+        :return: int
         """
-        self.hash = h
+        return (self.hash + off) % SIZE
 
-        # fingertable data
-        # this is fingertable it contains Proxies for each node from
-        self.to = [proxy] * LEN
-        self.to[0] = None
-
-        self.start = [(self.hash + 2 ** i) % MOD for i in range(LEN)]
-
-        self.predecessor = proxy
-
-        # succesor list
-        self.succesor_list = [None] * SUCC_LIST_LEN
-
-        self.proxy = proxy
-
-        self._logger = Utils.init_logger('Node %d Log' % self.hash)
-
-    def find_successor(self, id: int):
+    def successor(self) -> Pyro4.Proxy:
         """
-        Find succesor of identifier id
-        :param id: identifier
-        :return: Node
-        """
-        return self.find_antecessor(id).get_succesor()
-
-    def find_antecessor(self, id: int):
-        """
-        Find antecessor of identifier id
-        :param id: identifier
-        :return: Node
+        Return succesor of node self
+        :return: [ Pyro4.Proxy | None ]
         """
 
-        x = self
+        self._logger.debug("in successor function")
 
-        while not NodeUtils.on_interval(id, (x.hash + 1) % MOD, x.get_succesor().hash):
-            x = x.find_closest_pred(id)
-
-        return x
-
-    def find_closest_pred(self, id: int):
-        """
-        Find node closest predecessor of id
-        :param id: identifier
-        :return: Node
-        """
-
-        for i in reversed(range(LEN)):
-            try:
-                if i == 0:
-                    node = self.get_succesor()
-
-                else:
-                    node = self.to[i]
-
-                if NodeUtils.between(node.hash, self.hash, id):
-                    return node
-
-            except CommunicationError:
-                pass
-
-        for i in self.succesor_list:
-            try:
-                node = self.succesor_list[i]
-
-                if NodeUtils.between(node.hash, self.hash, id):
-                    return node
-
-            except CommunicationError:
-                pass
-
-        return self.proxy
-
-    def dynamic_join(self, other):
-        new_succ = other.find_successor(self.hash)
-        succ_list = new_succ.succesor_list.copy()
-        self.succesor_list = [new_succ] + succ_list[:-1]
-
-    def stabilize(self):
-        """
-        fix succesor of node self
-        :return: None
-        """
-
-        for i in range(SUCC_LIST_LEN):
-            try:
-                self.succesor_list[i].ping()
-            except CommunicationError:
+        for other in [self.finger[0]] + self.succesor_list:
+            if other is None:
                 continue
 
-            cur_node = self.succesor_list[i]
-            new_succ = cur_node.predecessor
-
-            succ_list = cur_node.succesor_list.copy()
-            succ_list = [cur_node] + succ_list[:-1]
-
+            self._logger.debug("ok in node other trying doing ping... %d" % other.hash)
             try:
-                if NodeUtils.between(new_succ.hash, self.hash, cur_node.hash):
-                    succ_list = new_succ.succesor_list.copy()
-                    succ_list = [new_succ] + succ_list[:-1]
-
-            except CommunicationError:
+                Utils.ping(other)
+            except PyroError:
                 pass
+            self._logger.debug("ok ping done")
 
-            self.succesor_list = succ_list
+            if Utils.ping(other):
+                self._logger.debug("ok succ is other = %d" % other.id())
+                self.finger[0] = other
+                return other
 
-            self._logger.debug("i = %d" % i)
-            self._logger.debug("first live succesor of self is node h = %d" % succ_list[0].hash)
-            self._logger.debug("try to notify")
+        self._logger.error("No successor available :(")
 
-            try:
-                succ_list[0].notify(self.proxy)
-            except CommunicationError:
-                pass
-
-            break
-
-    def notify(self, other):
+    def find_successor(self, id: int) -> Pyro4.Proxy:
         """
-        check if node new_pred is predecessor of self
-        :param other: None
-        :return:
+        Find succesor of id
+        :param id: identifier
+        :return: Pyro4.Proxy
         """
-        if NodeUtils.between(other.hash, self.predecessor.hash, self.hash):
-            self.predecessor = other
+        self._logger.info("Finding successor of id = %d" % id)
 
-    def fix_to(self):
+        self._logger.debug("pinging self res = %s" % Utils.ping(self.finger[0]))
+
+        if (self.predecessor is not None) and \
+           Utils.ping(self.predecessor) and \
+           NodeUtils.between(id, self.predecessor.id(1), self.id(1)):
+            return self._proxy
+
+        self._logger.debug("finding predecessor")
+        node = self.find_predecessor(id)
+
+        self._logger.info("Done")
+        return node.succesor()
+
+    def find_predecessor(self, id: int) -> Pyro4.Proxy:
+        self._logger.debug("here finding predecessor")
+        node = self._proxy
+        self._logger.debug("node here it is!!")
+
+        self._logger.debug("type succ %s" % type(node.finger[0]))
+
+        if node.successor().id() == node.id():
+            return node
+
+        self._logger.debug("finding antecessor of id=%d" % id)
+
+        while not NodeUtils.between(id, node.id(1), node.succesor().id(1)):
+            self._logger.debug("cur node h = %d" % node.id())
+            node = node.closest_preceding_finger(id)
+
+        return node
+
+    def closest_preceding_finger(self, id: int) -> Pyro4.Proxy:
         """
-        fix to array
+        Returns closest preceding finger from id
+        :param id: identifier
+        :return: Pyro4.Proxy
+        """
+        for other in reversed(self.succesor_list + self.finger):
+            if (other is not None) and Utils.ping(other) and \
+               NodeUtils.between(other.id(), self.id(1), id):
+                    return other
+
+        return self._proxy
+
+    def join(self, other: Pyro4.Proxy) -> None:
+        """
+        Join to DHT using node other
+        :param other: node other
         :return: None
         """
-        i = random.randint(1, LEN - 1)
-        self.to[i] = self.find_successor(self.start[i])
+        self._logger.info("Joined to DHT using node other (h = %d)" % other.id())
 
-    def __str__(self):
-        return "hash = %d" % self.hash
+        self.finger[0] = other.find_successor(self.id())
 
-    def debug(self):
-        print("Node %s" % self.__str__())
-        print("start values")
-        for i in range(LEN):
-            print("i =", i, self.start[i])
+    def stabilize(self) -> None:
+        """
+        Stabilize node self
+        :return: None
+        """
+        self._logger.info("stabilizing...")
 
-        print("succ nodes")
-        for i in range(LEN):
-            print("i =", i, self.to[i].hash)
+        succ = self.succesor()
 
-        print("----------------------")
+        if succ.id() != self.finger[0].id():
+            self.finger[0] = succ
 
+        x = succ.predecessor()
+
+        if (x is not None) and \
+            Utils.ping(x) and \
+            NodeUtils.between(x.id(), self.id(1), succ.id()) and \
+            self.id(1) != succ.id():
+                self.finger[0] = x
+
+        self.succesor().notify(self)
+
+    def notify(self, other) -> None:
+        """
+        Fixing predecessor
+        :param other: other node
+        :return: None
+        """
+        self._logger.info("notifying...")
+
+        if self.predecessor is None or \
+            not self.predecessor.ping() or \
+            NodeUtils.between(other.id(), self.predecessor.id(1), self.id()):
+                self.predecessor = other
+
+    def fix_fingers(self) -> None:
+        """
+        Fixing fingers of node self
+        :return: None
+        """
+        self._logger.info("fixing fingers...")
+
+        i = random.randint(1, LOG_LEN - 1)
+        self.finger[i] = self.find_successor(self.id(1 << i))
+
+    def update_successor_list(self) -> None:
+        """
+        Updates successor list of self
+        :return: None
+        """
+        self._logger.info("updating successor list....")
+
+        suc = self.succesor()
+
+        if suc.id() != self.id():
+            successors = [suc]
+            suc_list = self.successor_list[:SUCC_LIST_LEN - 1]
+
+            if suc_list and len(suc_list):
+                successors += suc_list
+
+            self.succesor_list = successors
 
 class NodeUtils:
     @staticmethod
-    def on_interval(x: int, a: int, b: int):
+    def between(c: int, a: int, b: int):
         """
-        Is x from a to b?
-
-        :param x: parameter to search
-        :param a: start of interval (inclusive)
-        :param b: end of interval (inclusive)
-        :return: Boolean
+        Is c in interval [a, b)
+        if a == b then it is the whole circle so will return True
+        :param c: id c
+        :param a: id a
+        :param b: id b
+        :return: bool
         """
-
-        if a <= b:
-            return a <= x <= b
-
-        return NodeUtils.on_interval(x, a, MOD - 1) or NodeUtils.on_interval(x, 0, b)
-
-    @staticmethod
-    def between(x: int, a: int, b: int):
+        a = a % SIZE
+        b = b % SIZE
+        c = c % SIZE
         if a < b:
-            return a < x < b
-
-        else:
-            return a < x or x < b
+            return a <= c and c < b
+        return a <= c or c < b
 
     @staticmethod
     def get_hash(location: str):

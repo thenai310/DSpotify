@@ -2,7 +2,19 @@ import logging
 from Pyro4.errors import *
 from Backend.DHT.Settings import *
 
+
 class Utils:
+    @staticmethod
+    def ping(node):
+        try:
+            # always return True
+            return node.ping()
+
+        except CommunicationError:
+            pass
+
+        return False
+
     @staticmethod
     def init_logger(logger_name):
         # create logger
