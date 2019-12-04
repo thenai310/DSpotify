@@ -195,7 +195,7 @@ class Node:
         self._logger.info("notifying...")
 
         if self.predecessor is None or \
-            not self.predecessor.ping() or \
+            not Utils.ping(self.predecessor) or \
             NodeUtils.between(other.id(), self.predecessor.id(1), self.id()):
                 self.predecessor = other
 
@@ -220,7 +220,7 @@ class Node:
 
         if suc.id() != self.id():
             successors = [suc]
-            suc_list = self.successor_list[:SUCC_LIST_LEN - 1]
+            suc_list = suc.successor_list[:SUCC_LIST_LEN - 1]
 
             if suc_list and len(suc_list):
                 successors += suc_list
