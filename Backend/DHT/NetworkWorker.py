@@ -119,19 +119,8 @@ def run_jobs():
                 # try again later, altough this should not happen
                 return None
 
-            logger.debug("current song is %s" % song_name)
-            logger.debug("hash is %d" % song_hash)
-            logger.debug("asking node h=%d" % proxy.id())
-
             succ = proxy.find_successor(song_hash)
             ext_succ_list = [succ] + succ.successor_list[:-1]
-
-            lst = []
-            for node in ext_succ_list:
-                if Utils.ping(node):
-                    lst.append(node.id())
-
-            logger.debug("succesor list = %s" % lst)
 
             cur_song = (song_dir + song_name, song_name, song_hash)
 
@@ -140,8 +129,6 @@ def run_jobs():
                     logger.debug("appending to node %d" % node.id())
                     song_list = node.songs
                     song_list.append(cur_song)
-
-                    logger.debug("songlist = %s" % song_list)
                     node.songs = song_list
 
         logger.info("Done distributing songs")
