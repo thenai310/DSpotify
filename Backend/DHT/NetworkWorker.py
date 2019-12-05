@@ -7,12 +7,24 @@ import sys, time
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Song import Song
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 
 def get_alive_nodes():
     ns = Pyro4.locateNS()
     return list(ns.list(prefix="Node:").items())
+
+
+def get_songs_set():
+    s = set()
+
+    for (dir, _, files) in os.walk(SONGS_DIRECTORY):
+        for name in files:
+            s.add((dir, name))
+
+    return s
 
 
 def run_jobs():
@@ -76,29 +88,21 @@ def run_jobs():
 
         logger.info("Done running all maintenance tasks")
 
-    def get_songs_set():
-        s = set()
-
-        for (dir, _, files) in os.walk(SONGS_DIRECTORY):
-            for name in files:
-                s.add((dir, name))
-
-        return s
-
     @tl.job(timedelta(seconds=DISTRIBUTE_SONGS_TIME))
     def distribute_songs():
         logger.info("Distributing songs...")
 
         alive = get_alive_nodes()
 
+        songs = set()
         for name, uri in alive:
             node = Pyro4.Proxy(uri)
 
             if Utils.ping(node):
                 # clearing songs
-                node.songs = []
-
-        songs = get_songs_set()
+                songs |= node.load_local_songs()
+                node.songs = set()
+                logger.debug(type(node.songs))
 
         for song_dir, song_name in songs:
             song_hash = Utils.get_hash(song_name)
@@ -122,17 +126,16 @@ def run_jobs():
             succ = proxy.find_successor(song_hash)
             ext_succ_list = [succ] + succ.successor_list[:-1]
 
-            cur_song = (song_dir + song_name, song_name, song_hash)
+            cur_song = Song(song_dir + "/" + song_name, song_name, song_hash)
 
             for node in ext_succ_list:
                 if Utils.ping(node):
                     logger.debug("appending to node %d" % node.id())
                     song_list = node.songs
-                    song_list.append(cur_song)
+                    song_list.add(cur_song)
                     node.songs = song_list
 
         logger.info("Done distributing songs")
-
 
     @tl.job(timedelta(seconds=SHOW_CURRENT_STATUS_TIME))
     def show_current_status():

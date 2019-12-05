@@ -5,7 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtMultimedia import *
 from PyQt5.QtMultimediaWidgets import *
 
-from MainWindow import Ui_MainWindow
+from MediaPlayer.MainWindow import Ui_MainWindow
 
 def hhmmss(ms):
     # s = 1000
