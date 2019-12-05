@@ -46,7 +46,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.player.setPlaylist(self.playlist)
 
         # Connect control buttons/slides for media player.
-        self.playButton.pressed.connect(self.player.play)
+        self.playButton.pressed.connect(self.download_song)
         self.pauseButton.pressed.connect(self.player.pause)
         self.stopButton.pressed.connect(self.player.stop)
         self.volumeSlider.valueChanged.connect(self.player.setVolume)
@@ -66,28 +66,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.timeSlider.valueChanged.connect(self.player.setPosition)
 
         self.open_file_action.triggered.connect(self.open_file)
-
+        self.lineedit.returnPressed.connect(self.search_song)
+       
         self.setAcceptDrops(True)
 
         self.show()
 
-    # def dragEnterEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         e.acceptProposedAction()
-
-    # def dropEvent(self, e):
-    #     for url in e.mimeData().urls():
-    #         self.playlist.addMedia(
-    #             QMediaContent(url)
-    #         )
-
-    #     self.model.layoutChanged.emit()
-
-    #     # If not playing, seeking to first of newly added + play.
-    #     if self.player.state() != QMediaPlayer.PlayingState:
-    #         i = self.playlist.mediaCount() - len(e.mimeData().urls())
-    #         self.playlist.setCurrentIndex(i)
-    #         self.player.play()
+    def search_song(self):
+        print(self.lineedit.text())
+        self.lineedit.setText('')
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp3 Audio (*.mp3)")
@@ -100,6 +87,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
         self.model.layoutChanged.emit()
+    def download_song(self, *args):
+        """TO-DO code goes here"""
+        self.player.play
+
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
@@ -129,7 +120,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.playlistView.setCurrentIndex(ix)
 
     def erroralert(self, *args):
-        print(args)
+        self.messageBox.show()
 
 
 
