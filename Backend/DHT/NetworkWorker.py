@@ -17,6 +17,15 @@ def get_alive_nodes():
     return list(ns.list(prefix="Node:").items())
 
 
+def get_songs_set():
+    s = set()
+
+    for (dir, _, files) in os.walk(SONGS_DIRECTORY):
+        for name in files:
+            s.add((dir, name))
+
+    return s
+
 def run_jobs():
     tl = Timeloop()
 
@@ -77,15 +86,6 @@ def run_jobs():
                 logger.debug("Done updating successors list")
 
         logger.info("Done running all maintenance tasks")
-
-    def get_songs_set():
-        s = set()
-
-        for (dir, _, files) in os.walk(SONGS_DIRECTORY):
-            for name in files:
-                s.add((dir, name))
-
-        return s
 
     @tl.job(timedelta(seconds=DISTRIBUTE_SONGS_TIME))
     def distribute_songs():
