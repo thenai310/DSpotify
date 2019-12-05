@@ -3,12 +3,9 @@ import pickle
 from pydub import AudioSegment
 from Backend.DHT.NetworkWorker import get_songs_set
 
+CHUNK = 10000 # 5 seconds
+
 context = zmq.Context()
-
-HEADER_SIZE = 20
-
-def prep_msg(msg):
-    return f"{len(msg):<{HEADER_SIZE}}" + msg
 
 
 socket = context.socket(zmq.REP)
@@ -31,7 +28,6 @@ while True:
 
         print("audio len = %d" % len(audio))
 
-        CHUNK = 2 ** 12
         blk = (len(audio) + CHUNK - 1) // CHUNK
         k = 0
 
@@ -41,6 +37,10 @@ while True:
             blocks.append(audio[i:min(len(audio), i + CHUNK)])
 
         socket.send(pickle.dumps(blk))
+
+        new_msg = pickle.loads(socket.recv())
+
+        socket.send(pickle.dumps([audio.sample_width, audio.channels, audio.frame_rate]))
 
         while blk > 0:
             x = pickle.loads(socket.recv())

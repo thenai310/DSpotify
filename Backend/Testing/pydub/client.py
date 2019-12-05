@@ -1,14 +1,8 @@
 import zmq
 import pickle
-import pydub
+import pyaudio
 from pydub.playback import play
 from pydub import AudioSegment
-
-HEADER_SIZE = 20
-
-
-def prep_msg(msg):
-    return f"{len(msg):<{HEADER_SIZE}}" + msg
 
 
 context = zmq.Context()
@@ -45,6 +39,16 @@ while True:
 
     blk = pickle.loads(socket.recv())
 
+    socket.send(pickle.dumps(b"give me audio data"))
+    data = pickle.loads(socket.recv())
+
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=p.get_format_from_width(data[0]),
+                    channels=data[1],
+                    rate=data[2],
+                    output=True)
+
     print("Number of blocks to expect = %d" % blk)
 
     audio = AudioSegment.empty()
@@ -52,8 +56,7 @@ while True:
         socket.send(pickle.dumps(i))
         segment = pickle.loads(socket.recv())
 
-        if i == 0:
-            play(segment)
+        stream.write(segment.raw_data)
 
         audio += segment
 
