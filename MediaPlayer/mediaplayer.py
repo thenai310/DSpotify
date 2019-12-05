@@ -5,7 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtMultimedia import *
 from PyQt5.QtMultimediaWidgets import *
 
-from MediaPlayer.MainWindow import Ui_MainWindow
+from MainWindow import Ui_MainWindow
 
 def hhmmss(ms):
     # s = 1000
@@ -87,6 +87,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
         self.model.layoutChanged.emit()
+        
     def download_song(self, *args):
         """TO-DO code goes here"""
         self.player.play
