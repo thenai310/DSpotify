@@ -46,7 +46,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.player.setPlaylist(self.playlist)
 
         # Connect control buttons/slides for media player.
-        self.playButton.pressed.connect(self.player.play)
+        self.playButton.pressed.connect(self.download_song)
         self.pauseButton.pressed.connect(self.player.pause)
         self.stopButton.pressed.connect(self.player.stop)
         self.volumeSlider.valueChanged.connect(self.player.setVolume)
@@ -87,6 +87,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
         self.model.layoutChanged.emit()
+    def download_song(self, *args):
+        """TO-DO code goes here"""
+        self.player.play
+
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
@@ -116,7 +120,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.playlistView.setCurrentIndex(ix)
 
     def erroralert(self, *args):
-        print(args)
+        self.messageBox.show()
 
 
 

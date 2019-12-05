@@ -120,7 +120,8 @@ class Ui_MainWindow(object):
         self.open_file_action.setObjectName("open_file_action")
         self.menuFIle.addAction(self.open_file_action)
         self.menuBar.addAction(self.menuFIle.menuAction())
-
+        self.messageBox = QtWidgets.QMessageBox(self.centralWidget)
+        self.messageBox.setText("Error")
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
