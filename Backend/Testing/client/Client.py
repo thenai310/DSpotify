@@ -3,6 +3,8 @@ from Pyro4.errors import *
 import sys
 from Backend.DHT.Utils import Utils
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 
@@ -20,7 +22,7 @@ def get_song_list():
         node = Pyro4.Proxy(uri)
 
         if Utils.ping(node):
-            songs |= set(node.songs)
+            songs |= node.songs
 
     return songs
 
@@ -31,7 +33,7 @@ def show_song_list():
     print("This are all the songs on the server")
 
     for i, song in enumerate(songs):
-        print("%d- %s" % (i, song[1]))
+        print("%d- %s" % (i, song.name))
     print()
 
     option = 0
@@ -48,8 +50,32 @@ def show_song_list():
         except Exception:
             pass
 
-    print("Selected %s song" % songs[option][1])
+    print("Selected %s song" % songs[option].name)
+
+    proxy = None
+
+    while proxy is None:
+        alive = get_alive_nodes()
+
+        for name, uri in alive:
+            node = Pyro4.Proxy(uri)
+
+            if Utils.ping(node):
+                proxy = node
+                break
+
+    print("Hash of song is h=%d" % songs[option].hash)
+
+    succ = proxy.find_successor(songs[option].hash)
+
+    if songs[option] in succ.songs:
+        print("Ok node h=%d has your song!" % succ.id())
+
+    else:
+        print("Failed node h=%d does not have your song ... try again later" % succ.id())
+
 
 print("-" * 20 + "Test client" + "-" * 20)
 
-show_song_list()
+while True:
+    show_song_list()

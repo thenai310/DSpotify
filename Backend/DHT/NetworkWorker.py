@@ -7,6 +7,8 @@ import sys, time
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Song import Song
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 
@@ -96,7 +98,8 @@ def run_jobs():
 
             if Utils.ping(node):
                 # clearing songs
-                node.songs = []
+                node.songs = set()
+                logger.debug(type(node.songs))
 
         songs = get_songs_set()
 
@@ -122,13 +125,13 @@ def run_jobs():
             succ = proxy.find_successor(song_hash)
             ext_succ_list = [succ] + succ.successor_list[:-1]
 
-            cur_song = (song_dir + song_name, song_name, song_hash)
+            cur_song = Song(song_dir + song_name, song_name, song_hash)
 
             for node in ext_succ_list:
                 if Utils.ping(node):
                     logger.debug("appending to node %d" % node.id())
                     song_list = node.songs
-                    song_list.append(cur_song)
+                    song_list.add(cur_song)
                     node.songs = song_list
 
         logger.info("Done distributing songs")

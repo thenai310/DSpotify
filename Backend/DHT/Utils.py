@@ -106,6 +106,6 @@ class Utils:
         songs = node.songs
 
         for song in songs:
-            s += str.format("name = %s, hash = %d\n" % (song[1], song[2]))
+            s += str.format("name = %s, hash = %d\n" % (song.name, song.hash))
 
         return s

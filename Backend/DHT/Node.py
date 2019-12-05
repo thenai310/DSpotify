@@ -4,6 +4,8 @@ import sys
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 @Pyro4.expose
@@ -88,7 +90,7 @@ class Node:
         self.finger[0] = proxy
 
         # song list of node self
-        self.songs = []
+        self.songs = set()
 
     def ping(self):
         """

@@ -5,6 +5,8 @@ import sys
 import Pyro4
 from Pyro4.errors import *
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 parser = argparse.ArgumentParser(description="Node creation script")
