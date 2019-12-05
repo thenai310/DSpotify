@@ -87,6 +87,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
         self.model.layoutChanged.emit()
+        
     def download_song(self, *args):
         """TO-DO code goes here"""
         self.player.play
