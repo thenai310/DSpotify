@@ -19,6 +19,7 @@ class Node:
         self._successor_list = None
         self._proxy = None
         self._songs = None
+        self._location = None
 
         # is node added to DHT
         self._added = False
@@ -71,7 +72,15 @@ class Node:
     def songs(self, songs):
         self._songs = songs
 
-    def initialize(self, hash: int, proxy: Pyro4.Proxy) -> None:
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, location):
+        self._location = location
+
+    def initialize(self, hash: int, proxy: Pyro4.Proxy, location) -> None:
         """
         Initialize node self
         :param hash: hash of node
@@ -91,6 +100,7 @@ class Node:
 
         # song list of node self
         self.songs = set()
+        self.location = location
 
     def ping(self):
         """
