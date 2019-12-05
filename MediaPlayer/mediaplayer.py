@@ -67,7 +67,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.open_file_action.triggered.connect(self.open_file)
         self.lineedit.returnPressed.connect(self.search_song)
-       
+        self.refreshButton.pressed.connect(self.refreshList)
         self.setAcceptDrops(True)
 
         self.show()
@@ -76,6 +76,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         print(self.lineedit.text())
         self.lineedit.setText('')
 
+    def refreshList(self):
+        #code
+
+        
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp3 Audio (*.mp3)")
 
