@@ -1,11 +1,8 @@
 import Pyro4
 import random
-import hashlib
 import sys
-from typing import Union
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
-from Pyro4.errors import *
 
 sys.excepthook = Pyro4.util.excepthook
 
@@ -19,6 +16,7 @@ class Node:
         self._logger = None
         self._successor_list = None
         self._proxy = None
+        self._songs = None
 
         # is node added to DHT
         self._added = False
@@ -63,6 +61,14 @@ class Node:
     def added(self, added):
         self._added = added
 
+    @property
+    def songs(self):
+        return self._songs
+
+    @songs.setter
+    def songs(self, songs):
+        self._songs = songs
+
     def initialize(self, hash: int, proxy: Pyro4.Proxy) -> None:
         """
         Initialize node self
@@ -80,6 +86,9 @@ class Node:
         self._logger = Utils.init_logger("Node h=%d Log" % self.id())
 
         self.finger[0] = proxy
+
+        # song list of node self
+        self.songs = []
 
     def ping(self):
         """
@@ -122,7 +131,7 @@ class Node:
 
         if (self.predecessor is not None) and \
            Utils.ping(self.predecessor) and \
-           NodeUtils.between(id, self.predecessor.id(1), self.id(1)):
+           Utils.between(id, self.predecessor.id(1), self.id(1)):
             return self
 
         node = self.find_predecessor(id)
@@ -136,7 +145,7 @@ class Node:
         if node.successor().id() == node.id():
             return node
 
-        while not NodeUtils.between(id, node.id(1), node.successor().id(1)):
+        while not Utils.between(id, node.id(1), node.successor().id(1)):
             node = node.closest_preceding_finger(id)
 
         return node
@@ -149,7 +158,7 @@ class Node:
         """
         for other in reversed(self.successor_list + self.finger):
             if (other is not None) and Utils.ping(other) and \
-               NodeUtils.between(other.id(), self.id(1), id):
+               Utils.between(other.id(), self.id(1), id):
                     return other
 
         return self
@@ -180,7 +189,7 @@ class Node:
 
         if (x is not None) and \
             Utils.ping(x) and \
-            NodeUtils.between(x.id(), self.id(1), succ.id()) and \
+            Utils.between(x.id(), self.id(1), succ.id()) and \
             self.id(1) != succ.id():
                 self.finger[0] = x
 
@@ -196,7 +205,7 @@ class Node:
 
         if self.predecessor is None or \
             not Utils.ping(self.predecessor) or \
-            NodeUtils.between(other.id(), self.predecessor.id(1), self.id()):
+            Utils.between(other.id(), self.predecessor.id(1), self.id()):
                 self.predecessor = other
 
     def fix_fingers(self) -> None:
@@ -226,27 +235,3 @@ class Node:
                 successors += suc_list
 
             self.successor_list = successors
-
-class NodeUtils:
-    @staticmethod
-    def between(c: int, a: int, b: int):
-        """
-        Is c in interval [a, b)
-        if a == b then it is the whole circle so will return True
-        :param c: id c
-        :param a: id a
-        :param b: id b
-        :return: bool
-        """
-        a = a % SIZE
-        b = b % SIZE
-        c = c % SIZE
-        if a < b:
-            return a <= c and c < b
-        return a <= c or c < b
-
-    @staticmethod
-    def get_hash(location: str):
-        h = hashlib.sha1(location.encode()).hexdigest()
-        h = int(h, 16)
-        return h

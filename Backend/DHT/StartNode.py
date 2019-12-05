@@ -1,4 +1,4 @@
-from Backend.DHT.Node import Node, NodeUtils
+from Backend.DHT.Node import Node
 from Backend.DHT.Utils import Utils
 import argparse
 import sys
@@ -19,7 +19,7 @@ def register_node(cur_node):
     uri = daemon.register(cur_node)
 
     if args.hash is None:
-        cur_node.initialize(NodeUtils.get_hash(uri.location), Pyro4.Proxy(uri))
+        cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri))
 
     else:
         cur_node.initialize(args.hash, Pyro4.Proxy(uri))

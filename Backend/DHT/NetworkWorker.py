@@ -1,18 +1,13 @@
 from timeloop import Timeloop
 from datetime import timedelta
 import Pyro4
-from Pyro4.errors import *
-import argparse
-import sys
+import os
+from Backend.DHT.Settings import *
+import sys, time
 from Backend.DHT.Utils import Utils
+from Backend.DHT.Song import Song
 
 sys.excepthook = Pyro4.util.excepthook
-
-parser = argparse.ArgumentParser(description="Network Worker")
-parser.add_argument("--st_time", default=1, type=int, help="How often stabilize each node, default 1s")
-parser.add_argument("--ft_time", default=1, type=int, help="How often fix finger table indexes, default 1s")
-parser.add_argument("--status_time", default=5, type=int, help="How often fix finger table indexes, default 5s")
-args = parser.parse_args()
 
 
 def get_alive_nodes():
@@ -23,7 +18,7 @@ def get_alive_nodes():
 def run_jobs():
     tl = Timeloop()
 
-    @tl.job(timedelta(seconds=1))
+    @tl.job(timedelta(seconds=JOIN_NODES_TIME))
     def join_nodes():
         logger.info("ok looking for new nodes to join...")
         alive = get_alive_nodes()
@@ -57,16 +52,16 @@ def run_jobs():
 
         logger.info("done, joined %d nodes" % cnt)
 
-    @tl.job(timedelta(seconds=args.st_time))
+    @tl.job(timedelta(seconds=MAINTENANCE_JOBS_TIME))
     def jobs():
         logger.info("Running stabilizing, fix_fingers and update successors on all nodes...")
 
         alive = get_alive_nodes()
 
         for name, uri in alive:
-            try:
-                cur_node = Pyro4.Proxy(uri)
+            cur_node = Pyro4.Proxy(uri)
 
+            if Utils.ping(cur_node):
                 logger.debug("Stabilizing node %s..." % name)
                 cur_node.stabilize()
                 logger.debug("Done stabilize node h = %d" % cur_node.hash)
@@ -79,23 +74,89 @@ def run_jobs():
                 cur_node.update_successor_list()
                 logger.debug("Done updating successors list")
 
-            except CommunicationError:
-                logger.error("It seems there have been some errors")
-
         logger.info("Done running all maintenance tasks")
 
-    @tl.job(timedelta(seconds=args.status_time))
+    def get_songs_set():
+        s = set()
+
+        for (dir, _, files) in os.walk(SONGS_DIRECTORY):
+            for name in files:
+                s.add((dir, name))
+
+        return s
+
+    @tl.job(timedelta(seconds=DISTRIBUTE_SONGS_TIME))
+    def distribute_songs():
+        logger.info("Distributing songs...")
+
+        alive = get_alive_nodes()
+
+        for name, uri in alive:
+            node = Pyro4.Proxy(uri)
+
+            if Utils.ping(node):
+                # clearing songs
+                node.songs = []
+
+        songs = get_songs_set()
+
+        for song_dir, song_name in songs:
+            song_hash = Utils.get_hash(song_name)
+
+            if DEBUG_MODE:
+                song_hash = int(song_name[0])
+
+            proxy = None
+
+            for name, uri in alive:
+                node = Pyro4.Proxy(uri)
+
+                if Utils.ping(node):
+                    proxy = node
+                    break
+
+            if proxy is None:
+                # try again later, altough this should not happen
+                return None
+
+            logger.debug("current song is %s" % song_name)
+            logger.debug("hash is %d" % song_hash)
+            logger.debug("asking node h=%d" % proxy.id())
+
+            succ = proxy.find_successor(song_hash)
+            ext_succ_list = [succ] + succ.successor_list[:-1]
+
+            lst = []
+            for node in ext_succ_list:
+                if Utils.ping(node):
+                    lst.append(node.id())
+
+            logger.debug("succesor list = %s" % lst)
+
+            cur_song = (song_dir + song_name, song_name, song_hash)
+
+            for node in ext_succ_list:
+                if Utils.ping(node):
+                    logger.debug("appending to node %d" % node.id())
+                    song_list = node.songs
+                    song_list.append(cur_song)
+
+                    logger.debug("songlist = %s" % song_list)
+                    node.songs = song_list
+
+        logger.info("Done distributing songs")
+
+
+    @tl.job(timedelta(seconds=SHOW_CURRENT_STATUS_TIME))
     def show_current_status():
         # this is for debugging purposes
         alive = get_alive_nodes()
 
         for name, uri in alive:
-            try:
-                cur_node = Pyro4.Proxy(uri)
-                logger.debug(Utils.debug_node(cur_node))
+            cur_node = Pyro4.Proxy(uri)
 
-            except CommunicationError:
-                logger.error("It seems there have been some errors")
+            if Utils.ping(cur_node):
+                logger.debug(Utils.debug_node(cur_node))
 
     logger.info("Running jobs of stabilize and fix fingers...")
     tl.start(block=True)
@@ -104,7 +165,5 @@ def run_jobs():
 if __name__ == "__main__":
     logger = Utils.init_logger("Network Worker Logger")
     logger.info("Network Worker Initialized")
-    logger.info("Stabilize frequency = %d, Fix fingers frequency = %d, Status Refreshing time = %d"
-                % (args.st_time, args.ft_time, args.status_time))
 
     run_jobs()

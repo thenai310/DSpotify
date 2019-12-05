@@ -1,4 +1,5 @@
 import logging
+import hashlib
 from Pyro4.errors import *
 from Backend.DHT.Settings import *
 
@@ -35,6 +36,29 @@ class Utils:
         logger.addHandler(ch)
 
         return logger
+
+    @staticmethod
+    def between(c: int, a: int, b: int):
+        """
+        Is c in interval [a, b)
+        if a == b then it is the whole circle so will return True
+        :param c: id c
+        :param a: id a
+        :param b: id b
+        :return: bool
+        """
+        a = a % SIZE
+        b = b % SIZE
+        c = c % SIZE
+        if a < b:
+            return a <= c and c < b
+        return a <= c or c < b
+
+    @staticmethod
+    def get_hash(location: str):
+        h = hashlib.sha1(location.encode()).hexdigest()
+        h = int(h, 16)
+        return h
 
     @staticmethod
     def debug_node(node):  #recibe un Pyro4.Proxy
@@ -76,5 +100,12 @@ class Utils:
 
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
+
+        s += "Info on songs\n"
+
+        songs = node.songs
+
+        for song in songs:
+            s += str.format("name = %s, hash = %d\n" % (song[1], song[2]))
 
         return s

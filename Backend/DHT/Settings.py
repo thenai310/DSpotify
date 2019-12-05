@@ -1,3 +1,6 @@
+# debugging small case
+DEBUG_MODE = True
+
 # log of SIZE of DHT
 LOG_LEN = 3
 
@@ -9,6 +12,10 @@ SUCC_LIST_LEN = 3
 
 #timing
 
-STABILIZE_TIME = 1
-FIX_FINGERS_TIME = 1.2
-UPD_SUCC_LIST_TIME = 1.3
+JOIN_NODES_TIME = 1
+MAINTENANCE_JOBS_TIME = 1
+DISTRIBUTE_SONGS_TIME = 7
+SHOW_CURRENT_STATUS_TIME = 4
+
+# directory of songs
+SONGS_DIRECTORY = "./Songs"
