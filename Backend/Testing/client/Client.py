@@ -1,11 +1,18 @@
 import Pyro4
 from Pyro4.errors import *
 import sys
+import pickle
+import zmq
+import pyaudio
+from pydub import AudioSegment
 from Backend.DHT.Utils import Utils
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
+
+context = zmq.Context()
+socket = context.socket(zmq.REQ)
 
 
 def get_alive_nodes():
@@ -68,11 +75,64 @@ def show_song_list():
 
     succ = proxy.find_successor(songs[option].hash)
 
-    if songs[option] in succ.songs:
+    if succ.is_song_available(songs[option].name):
         print("Ok node h=%d has your song!" % succ.id())
+        print("Downloading now...")
+
+        receiving_song(succ, songs[option].name)
 
     else:
         print("Failed node h=%d does not have your song ... try again later" % succ.id())
+
+
+def receiving_song(succ, song_name):
+    location = succ.ip + ":" + str(succ.port_socket)
+
+    print("Connecting to socket %s ..." % location)
+
+    socket.connect("tcp://" + location)
+
+    print("Connected!")
+
+    print("Sending song name = %s ..." % song_name)
+
+    socket.send(pickle.dumps(song_name))
+
+    blk = pickle.loads(socket.recv())
+
+    print("Number of blocks to expect = %d" % blk)
+
+    socket.send(pickle.dumps(b"audio data"))
+    data = pickle.loads(socket.recv())
+
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=p.get_format_from_width(data[0]),
+                    channels=data[1],
+                    rate=data[2],
+                    output=True)
+
+    print("Playing....")
+
+    # audio = AudioSegment.empty()
+    for i in range(blk):
+        socket.send(pickle.dumps(i))
+        segment = pickle.loads(socket.recv())
+
+        try:
+            stream.write(segment.raw_data)
+
+        except KeyboardInterrupt:
+            if i < blk - 1:
+                socket.send(pickle.dumps(-1))
+                socket.recv()
+            print("ctrl-c detected stopping...")
+            break
+
+        print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
+
+    stream.stop_stream()
+    stream.close()
 
 
 print("-" * 20 + "Test client" + "-" * 20)

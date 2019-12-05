@@ -3,7 +3,7 @@ import pickle
 from pydub import AudioSegment
 from Backend.DHT.NetworkWorker import get_songs_set
 
-CHUNK = 10000 # 5 seconds
+CHUNK = 10000 # time length of each CHUNK
 
 context = zmq.Context()
 

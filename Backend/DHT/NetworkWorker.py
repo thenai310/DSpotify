@@ -26,6 +26,7 @@ def get_songs_set():
 
     return s
 
+
 def run_jobs():
     tl = Timeloop()
 
@@ -93,15 +94,15 @@ def run_jobs():
 
         alive = get_alive_nodes()
 
+        songs = set()
         for name, uri in alive:
             node = Pyro4.Proxy(uri)
 
             if Utils.ping(node):
                 # clearing songs
+                songs |= node.load_local_songs()
                 node.songs = set()
                 logger.debug(type(node.songs))
-
-        songs = get_songs_set()
 
         for song_dir, song_name in songs:
             song_hash = Utils.get_hash(song_name)
@@ -125,7 +126,7 @@ def run_jobs():
             succ = proxy.find_successor(song_hash)
             ext_succ_list = [succ] + succ.successor_list[:-1]
 
-            cur_song = Song(song_dir + song_name, song_name, song_hash)
+            cur_song = Song(song_dir + "/" + song_name, song_name, song_hash)
 
             for node in ext_succ_list:
                 if Utils.ping(node):
@@ -135,7 +136,6 @@ def run_jobs():
                     node.songs = song_list
 
         logger.info("Done distributing songs")
-
 
     @tl.job(timedelta(seconds=SHOW_CURRENT_STATUS_TIME))
     def show_current_status():

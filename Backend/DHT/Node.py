@@ -1,12 +1,17 @@
 import Pyro4
 import random
 import sys
+import zmq
+import pickle
 from Backend.DHT.Utils import Utils
 from Backend.DHT.Settings import *
+from Backend.DHT.NetworkWorker import get_songs_set
+from pydub import AudioSegment
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
+
 
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
@@ -19,7 +24,7 @@ class Node:
         self._successor_list = None
         self._proxy = None
         self._songs = None
-        self._location = None
+        self.port_socket = None
 
         # is node added to DHT
         self._added = False
@@ -73,14 +78,22 @@ class Node:
         self._songs = songs
 
     @property
-    def location(self):
-        return self._location
+    def port_socket(self):
+        return self._port_socket
 
-    @location.setter
-    def location(self, location):
-        self._location = location
+    @port_socket.setter
+    def port_socket(self, port_socket):
+        self._port_socket = port_socket
 
-    def initialize(self, hash: int, proxy: Pyro4.Proxy, location) -> None:
+    @property
+    def ip(self):
+        return self._ip
+
+    @ip.setter
+    def ip(self, ip):
+        self._ip = ip
+
+    def initialize(self, hash: int, proxy: Pyro4.Proxy, ip) -> None:
         """
         Initialize node self
         :param hash: hash of node
@@ -99,8 +112,18 @@ class Node:
         self.finger[0] = proxy
 
         # song list of node self
-        self.songs = set()
-        self.location = location
+        self.songs = set() # set of Song
+        self.ip = ip
+
+    def load_local_songs(self):
+        return get_songs_set()
+
+    def is_song_available(self, song_name):
+        for song in self.songs:
+            if song.name == song_name:
+                return True
+
+        return False
 
     def ping(self):
         """
