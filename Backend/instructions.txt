@@ -1,6 +1,3 @@
-# DSpotify
-
-# To run the Chord implementation:
 -Install the dependencies in requirements.txt
 
 -First of all start Pyro4 name server, you do this from a terminal by typing pyro4-ns

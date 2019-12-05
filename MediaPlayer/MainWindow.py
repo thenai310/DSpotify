@@ -1,17 +1,10 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'mainwindow.ui'
-#
-# Created by: PyQt5 UI code generator 5.10
-#
-# WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(484, 871)
+        MainWindow.setFixedSize(454, 671)
         self.centralWidget = QtWidgets.QWidget(MainWindow)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(0)
@@ -34,6 +27,13 @@ class Ui_MainWindow(object):
         self.playlistView.setUniformItemSizes(True)
         self.playlistView.setObjectName("playlistView")
         self.verticalLayout.addWidget(self.playlistView)
+        self.horizontalLayout_3 = QtWidgets.QFormLayout()
+        self.horizontalLayout_3.setSpacing(6)
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.lineedit = QtWidgets.QLineEdit()
+        self.searchLabel = QtWidgets.QLabel("Buscar")
+        self.horizontalLayout_3.addRow(self.searchLabel,self.lineedit)
+        self.verticalLayout.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_4.setSpacing(6)
         self.horizontalLayout_4.setObjectName("horizontalLayout_4")
@@ -52,6 +52,7 @@ class Ui_MainWindow(object):
         self.totalTimeLabel.setObjectName("totalTimeLabel")
         self.horizontalLayout_4.addWidget(self.totalTimeLabel)
         self.verticalLayout.addLayout(self.horizontalLayout_4)
+
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setSpacing(6)
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
@@ -126,6 +127,9 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "DSpotify"))
+        iconapp = QtGui.QIcon()
+        iconapp.addPixmap(QtGui.QPixmap("images/application-image.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        MainWindow.setWindowIcon(iconapp)
         self.currentTimeLabel.setText(_translate("MainWindow", "0:00"))
         self.totalTimeLabel.setText(_translate("MainWindow", "0:00"))
         self.menuFIle.setTitle(_translate("MainWindow", "File"))
