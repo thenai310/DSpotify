@@ -46,8 +46,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # for song in DHT_songs:
         #     self.song_listView.addItem(song)
         """And then pass the song selected to the playlist"""
-
-        # self.song_listView.itemPressed.connect(self.adding_to_playlist)
+        # self.song_listView.addItem("item1.mp3")
+        self.song_listView.itemPressed.connect(self.adding_to_playlist)
         """And voilá"""
 
         # Setup the playlist.
@@ -93,16 +93,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp3 Audio (*.mp3)")
 
         if path:
-            self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
+            self.song_listView.addItem(path)
+            # self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
 
-        self.model.layoutChanged.emit()
+        # self.model.layoutChanged.emit()
         
     def download_song(self, *args):
         """TO-DO code goes here"""
         self.player.play()
 
     def adding_to_playlist(self,song):
-        self.playlist.addMedia(song)
+        print(song.text())
+        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(song.text())))
+        self.model.layoutChanged.emit()
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
