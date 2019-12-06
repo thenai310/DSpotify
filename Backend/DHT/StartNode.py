@@ -21,49 +21,41 @@ def start_socket(h):
     subprocess.run(["python3 -m Backend.DHT.Prep_socket --hash " + str(h)], shell=True, universal_newlines=True)
 
 
-h = 0
-
-
 def register_node(cur_node):
     logger.info("Registering node...")
 
     daemon = Pyro4.Daemon()
     uri = daemon.register(cur_node)
 
-    ip = uri.location.split(":")[0]
+    n = os.fork()
 
-    global h
+    if n > 0:
+        ip = uri.location.split(":")[0]
 
-    if args.hash is None:
-        cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri), ip)
-        h = Utils.get_hash(uri.location)
+        if args.hash is None:
+            cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri), ip)
+
+        else:
+            cur_node.initialize(args.hash, Pyro4.Proxy(uri), ip)
+
+        logger.debug("Node location %s" % uri.location)
+
+        with Pyro4.locateNS() as ns:
+            ns.register("Node:" + str(cur_node.hash), uri)
+
+        logger.info("Daemon Loop will run now ... Node is waiting for requests!")
+        daemon.requestLoop()
 
     else:
-        cur_node.initialize(args.hash, Pyro4.Proxy(uri), ip)
-        h = args.hash
+        t = 3
+        logger.debug("On child process, waiting %d secs" % t)
+        time.sleep(t)
 
-    logger.debug("Node location %s" % uri.location)
-
-    with Pyro4.locateNS() as ns:
-        ns.register("Node:" + str(cur_node.hash), uri)
-
-    logger.info("Daemon Loop will run now ... Node is waiting for requests!")
-    daemon.requestLoop()
+        cur_node = Pyro4.Proxy(uri)
+        start_socket(cur_node.hash)
 
 
 if __name__ == "__main__":
     logger = Utils.init_logger("StartNode Log")
     curNode = Node()
-
-    n = os.fork()
-
-    if n > 0:
-        register_node(curNode)
-
-    else:
-        #wait for daemon to start
-        t = 3
-        logger.debug("On child process, waiting %d secs" % t)
-        time.sleep(t)
-
-        start_socket(h)
+    register_node(curNode)

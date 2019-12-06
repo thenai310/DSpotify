@@ -5,7 +5,7 @@ import pickle
 import zmq
 import pyaudio
 from pydub import AudioSegment
-from Backend.DHT.Utils import Utils
+from Backend.DHT.Utils import Utils, STREAM, STATIC
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -35,7 +35,11 @@ def get_song_list():
 
 
 def show_song_list():
-    songs = list(get_song_list())
+    while True:
+        songs = list(get_song_list())
+
+        if len(songs) > 0:
+            break
 
     print("This are all the songs on the server")
 
@@ -94,6 +98,9 @@ def receiving_song(succ, song_name):
 
     print("Connected!")
 
+    socket.send(pickle.dumps(STREAM))
+    socket.recv()  # should be ok
+
     print("Sending song name = %s ..." % song_name)
 
     socket.send(pickle.dumps(song_name))
@@ -133,6 +140,7 @@ def receiving_song(succ, song_name):
 
     stream.stop_stream()
     stream.close()
+
 
 
 print("-" * 20 + "Test client" + "-" * 20)

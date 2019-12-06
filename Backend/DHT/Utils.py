@@ -2,6 +2,11 @@ import logging
 import hashlib
 from Pyro4.errors import *
 from Backend.DHT.Settings import *
+from enum import Enum
+
+# connection mode
+STREAM = 1
+STATIC = 2
 
 
 class Utils:
