@@ -1,8 +1,8 @@
 # debugging small case (if True hash of songs is name, else is big hash)
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 # log of SIZE of DHT, one common choice is 160 (using each node SHA1 encryption)
-LOG_LEN = 160
+LOG_LEN = 3
 
 # SIZE of DHT
 SIZE = 2 ** LOG_LEN
@@ -18,7 +18,7 @@ DISTRIBUTE_SONGS_TIME = 7
 SHOW_CURRENT_STATUS_TIME = 4
 
 # directory of songs
-SONGS_DIRECTORY = "./Songs"
+SONGS_DIRECTORY = "./songs_small"
 
 # how much time each CHUNCK has in miliseconds
 CHUNK_LENGTH = 500
