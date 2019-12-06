@@ -3,8 +3,9 @@ from Backend.DHT.Utils import Utils
 import argparse
 import sys
 import Pyro4
-from Pyro4.errors import *
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 parser = argparse.ArgumentParser(description="Node creation script")
@@ -18,11 +19,13 @@ def register_node(cur_node):
     daemon = Pyro4.Daemon()
     uri = daemon.register(cur_node)
 
+    ip = uri.location.split(":")[0]
+
     if args.hash is None:
-        cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri))
+        cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri), ip)
 
     else:
-        cur_node.initialize(args.hash, Pyro4.Proxy(uri))
+        cur_node.initialize(args.hash, Pyro4.Proxy(uri), ip)
 
     logger.debug("Node location %s" % uri.location)
 

@@ -1,8 +1,9 @@
 python3-vlc (vlc too)
 timeloop (https://github.com/sankalpjonn/timeloop)
 Pyro4
+pydub
 
-Media Player:
-python3-pyqt5
-python3-pyqt5.qtmultimedia
-libqt5multimedia-plugins
+# esto es para cliente
+python-pyqt5
+python-pyqt5.qtmultimedia
+libqt5multimedia5-plugins
