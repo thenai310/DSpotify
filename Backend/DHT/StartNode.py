@@ -49,8 +49,8 @@ def register_node(cur_node):
 
         alive = get_alive_nodes()
 
-        for name, uri in alive:
-            proxy = Pyro4.Proxy(uri)
+        for name, _uri in alive:
+            proxy = Pyro4.Proxy(_uri)
 
             if Utils.ping(proxy):
                 if proxy.id() == assigned_hash:
