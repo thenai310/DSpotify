@@ -19,13 +19,6 @@ class Ui_MainWindow(object):
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setSpacing(6)
         self.verticalLayout.setObjectName("verticalLayout")
-<<<<<<< HEAD
-        self.song_listView = QtWidgets.QListWidget(self.centralWidget)
-        self.song_listView.setUniformItemSizes(True)
-        self.song_listView.setObjectName("song_listView")
-        self.verticalLayout.addWidget(self.song_listView)
-        self.playlistView = QtWidgets.QListView(self.centralWidget)
-=======
         self.song_listWidget = QtWidgets.QListWidget(self.centralWidget)
         self.song_listWidget.setUniformItemSizes(True)
         self.song_listWidget.setObjectName("song_listWidget")
@@ -33,7 +26,6 @@ class Ui_MainWindow(object):
         self.playlistView = QtWidgets.QListView(self.centralWidget)
         # self.playlistView.setAcceptDrops(True)
         # self.playlistView.setProperty("showDropIndicator", True)
->>>>>>> 994c672433692acaa2b54affc9d150eceb1914bb
         self.playlistView.setAlternatingRowColors(True)
         self.playlistView.setUniformItemSizes(True)
         self.playlistView.setObjectName("playlistView")

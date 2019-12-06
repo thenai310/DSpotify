@@ -72,15 +72,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.player.error.connect(self.error_alert)
         self.player.play()
-        """ Bring the songs, i imagine there is a sort of a for loop to enter the songs
-            of Dht to the preview list"""
-
-        # for song in DHT_songs:
-        #     self.song_listView.addItem(song)
-        """And then pass the song selected to the playlist"""
-        # self.song_listView.addItem("item1.mp3")
-        self.song_listView.itemPressed.connect(self.adding_to_playlist)
-        """And voilá"""
 
         # Setup QListWidget
         self.song_listWidget.itemDoubleClicked.connect(self.download_song)
@@ -143,11 +134,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.song_listWidget.addItem(song.name)
 
         self.song_listWidget.update()
-
-    def adding_to_playlist(self,song):
-        print(song.text())
-        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(song.text())))
-        self.model.layoutChanged.emit()
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp3 Audio (*.mp3)")
