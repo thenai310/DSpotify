@@ -1,4 +1,4 @@
-# debugging small case
+# debugging small case (if True hash of songs is name, else is big hash)
 DEBUG_MODE = True
 
 # log of SIZE of DHT

@@ -1,5 +1,6 @@
 from Backend.DHT.Node import Node
-from Backend.DHT.Utils import Utils
+from Backend.DHT.Utils import *
+from Backend.DHT.Settings import *
 import subprocess
 import argparse
 import sys
@@ -32,11 +33,29 @@ def register_node(cur_node):
     if n > 0:
         ip = uri.location.split(":")[0]
 
+        assigned_hash = 0
+
         if args.hash is None:
             cur_node.initialize(Utils.get_hash(uri.location), Pyro4.Proxy(uri), ip)
+            assigned_hash = Utils.get_hash(uri.location)
 
         else:
             cur_node.initialize(args.hash, Pyro4.Proxy(uri), ip)
+            assigned_hash = args.hash
+
+        if assigned_hash < 0 or assigned_hash >= SIZE:
+            logger.error("Hash of node is not in range [0, SIZE). Exiting ...")
+            exit(-1)
+
+        alive = get_alive_nodes()
+
+        for name, uri in alive:
+            proxy = Pyro4.Proxy(uri)
+
+            if Utils.ping(proxy):
+                if proxy.id() == assigned_hash:
+                    logger.error("There exists other node with the same hash. Exiting ...")
+                    exit(-1)
 
         logger.debug("Node location %s" % uri.location)
 
