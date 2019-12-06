@@ -1,7 +1,8 @@
-python3-vlc (vlc too)
 timeloop (https://github.com/sankalpjonn/timeloop)
 Pyro4
 pydub
+pyaudio
+zmq
 
 # esto es para cliente
 python-pyqt5

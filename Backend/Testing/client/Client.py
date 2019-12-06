@@ -5,19 +5,13 @@ import pickle
 import zmq
 import pyaudio
 from pydub import AudioSegment
-from Backend.DHT.Utils import Utils
+from Backend.DHT.Utils import *
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 context = zmq.Context()
-socket = context.socket(zmq.REQ)
-
-
-def get_alive_nodes():
-    ns = Pyro4.locateNS()
-    return list(ns.list(prefix="Node:").items())
 
 
 def get_song_list():
@@ -35,7 +29,11 @@ def get_song_list():
 
 
 def show_song_list():
-    songs = list(get_song_list())
+    while True:
+        songs = list(get_song_list())
+
+        if len(songs) > 0:
+            break
 
     print("This are all the songs on the server")
 
@@ -90,49 +88,52 @@ def receiving_song(succ, song_name):
 
     print("Connecting to socket %s ..." % location)
 
-    socket.connect("tcp://" + location)
+    with context.socket(zmq.REQ) as socket:
+        socket.connect("tcp://" + location)
 
-    print("Connected!")
+        print("Connected!")
 
-    print("Sending song name = %s ..." % song_name)
+        socket.send(pickle.dumps(STREAM))
+        socket.recv()  # should be ok
 
-    socket.send(pickle.dumps(song_name))
+        print("Sending song name = %s ..." % song_name)
 
-    blk = pickle.loads(socket.recv())
+        socket.send(pickle.dumps(song_name))
 
-    print("Number of blocks to expect = %d" % blk)
+        blk = pickle.loads(socket.recv())
 
-    socket.send(pickle.dumps(b"audio data"))
-    data = pickle.loads(socket.recv())
+        print("Number of blocks to expect = %d" % blk)
 
-    p = pyaudio.PyAudio()
+        socket.send(pickle.dumps(b"audio data"))
+        data = pickle.loads(socket.recv())
 
-    stream = p.open(format=p.get_format_from_width(data[0]),
-                    channels=data[1],
-                    rate=data[2],
-                    output=True)
+        p = pyaudio.PyAudio()
 
-    print("Playing....")
+        stream = p.open(format=p.get_format_from_width(data[0]),
+                        channels=data[1],
+                        rate=data[2],
+                        output=True)
 
-    # audio = AudioSegment.empty()
-    for i in range(blk):
-        socket.send(pickle.dumps(i))
-        segment = pickle.loads(socket.recv())
+        print("Playing....")
 
-        try:
-            stream.write(segment.raw_data)
+        for i in range(blk):
+            socket.send(pickle.dumps(i))
+            segment = pickle.loads(socket.recv())
 
-        except KeyboardInterrupt:
-            if i < blk - 1:
-                socket.send(pickle.dumps(-1))
-                socket.recv()
-            print("ctrl-c detected stopping...")
-            break
+            try:
+                stream.write(segment.raw_data)
 
-        print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
+            except KeyboardInterrupt:
+                if i < blk - 1:
+                    socket.send(pickle.dumps(-1))
+                    socket.recv()
+                print("ctrl-c detected stopping...")
+                break
 
-    stream.stop_stream()
-    stream.close()
+            print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
+
+        stream.stop_stream()
+        stream.close()
 
 
 print("-" * 20 + "Test client" + "-" * 20)

@@ -102,7 +102,6 @@ def run_jobs():
                 # clearing songs
                 songs |= node.load_local_songs()
                 node.songs = set()
-                logger.debug(type(node.songs))
 
         for song_dir, song_name in songs:
             song_hash = Utils.get_hash(song_name)
@@ -130,7 +129,6 @@ def run_jobs():
 
             for node in ext_succ_list:
                 if Utils.ping(node):
-                    logger.debug("appending to node %d" % node.id())
                     song_list = node.songs
                     song_list.add(cur_song)
                     node.songs = song_list

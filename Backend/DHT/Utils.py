@@ -2,7 +2,20 @@ import logging
 import hashlib
 from Pyro4.errors import *
 from Backend.DHT.Settings import *
+import Pyro4
+import sys
 
+Pyro4.config.SERIALIZER = "pickle"
+Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
+sys.excepthook = Pyro4.util.excepthook
+
+# connection mode
+STREAM = 1
+STATIC = 2
+
+def get_alive_nodes():
+    ns = Pyro4.locateNS()
+    return list(ns.list(prefix="Node:").items())
 
 class Utils:
     @staticmethod
