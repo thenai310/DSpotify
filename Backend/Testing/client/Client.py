@@ -12,8 +12,6 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 context = zmq.Context()
-socket = context.socket(zmq.REQ)
-
 
 def get_alive_nodes():
     ns = Pyro4.locateNS()
@@ -94,53 +92,53 @@ def receiving_song(succ, song_name):
 
     print("Connecting to socket %s ..." % location)
 
-    socket.connect("tcp://" + location)
+    with context.socket(zmq.REQ) as socket:
+        socket.connect("tcp://" + location)
 
-    print("Connected!")
+        print("Connected!")
 
-    socket.send(pickle.dumps(STREAM))
-    socket.recv()  # should be ok
+        socket.send(pickle.dumps(STREAM))
+        socket.recv()  # should be ok
 
-    print("Sending song name = %s ..." % song_name)
+        print("Sending song name = %s ..." % song_name)
 
-    socket.send(pickle.dumps(song_name))
+        socket.send(pickle.dumps(song_name))
 
-    blk = pickle.loads(socket.recv())
+        blk = pickle.loads(socket.recv())
 
-    print("Number of blocks to expect = %d" % blk)
+        print("Number of blocks to expect = %d" % blk)
 
-    socket.send(pickle.dumps(b"audio data"))
-    data = pickle.loads(socket.recv())
+        socket.send(pickle.dumps(b"audio data"))
+        data = pickle.loads(socket.recv())
 
-    p = pyaudio.PyAudio()
+        p = pyaudio.PyAudio()
 
-    stream = p.open(format=p.get_format_from_width(data[0]),
-                    channels=data[1],
-                    rate=data[2],
-                    output=True)
+        stream = p.open(format=p.get_format_from_width(data[0]),
+                        channels=data[1],
+                        rate=data[2],
+                        output=True)
 
-    print("Playing....")
+        print("Playing....")
 
-    # audio = AudioSegment.empty()
-    for i in range(blk):
-        socket.send(pickle.dumps(i))
-        segment = pickle.loads(socket.recv())
+        # audio = AudioSegment.empty()
+        for i in range(blk):
+            socket.send(pickle.dumps(i))
+            segment = pickle.loads(socket.recv())
 
-        try:
-            stream.write(segment.raw_data)
+            try:
+                stream.write(segment.raw_data)
 
-        except KeyboardInterrupt:
-            if i < blk - 1:
-                socket.send(pickle.dumps(-1))
-                socket.recv()
-            print("ctrl-c detected stopping...")
-            break
+            except KeyboardInterrupt:
+                if i < blk - 1:
+                    socket.send(pickle.dumps(-1))
+                    socket.recv()
+                print("ctrl-c detected stopping...")
+                break
 
-        print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
+            print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
 
-    stream.stop_stream()
-    stream.close()
-
+        stream.stop_stream()
+        stream.close()
 
 
 print("-" * 20 + "Test client" + "-" * 20)

@@ -21,4 +21,4 @@ SHOW_CURRENT_STATUS_TIME = 4
 SONGS_DIRECTORY = "./Songs"
 
 # how much time each CHUNCK has in miliseconds
-CHUNK_LENGTH = 7000
+CHUNK_LENGTH = 500
