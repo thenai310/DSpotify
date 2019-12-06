@@ -5,17 +5,13 @@ import pickle
 import zmq
 import pyaudio
 from pydub import AudioSegment
-from Backend.DHT.Utils import Utils, STREAM, STATIC
+from Backend.DHT.Utils import *
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
 
 context = zmq.Context()
-
-def get_alive_nodes():
-    ns = Pyro4.locateNS()
-    return list(ns.list(prefix="Node:").items())
 
 
 def get_song_list():
@@ -120,7 +116,6 @@ def receiving_song(succ, song_name):
 
         print("Playing....")
 
-        # audio = AudioSegment.empty()
         for i in range(blk):
             socket.send(pickle.dumps(i))
             segment = pickle.loads(socket.recv())

@@ -12,6 +12,7 @@ import sys
 import pickle
 import pydub
 import os
+import time
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -143,69 +144,82 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.model.layoutChanged.emit()
 
     def download_song(self, *args):
-        with context.socket(zmq.REQ) as socket:
-            song_name = self.song_listWidget.currentItem().text()
+        song_name = self.song_listWidget.currentItem().text()
 
-            if song_name in self.songs_on_playlist:
-                return None
+        if song_name in self.songs_on_playlist:
+            return None
 
-            alive = get_alive_nodes()
+        alive = get_alive_nodes()
 
-            proxy = None
-            for name, uri in alive:
-                node = Pyro4.Proxy(uri)
+        proxy = None
+        for name, uri in alive:
+            node = Pyro4.Proxy(uri)
 
-                if Utils.ping(node):
-                    proxy = node
-                    break
+            if Utils.ping(node):
+                proxy = node
+                break
 
-            if proxy is None:
-                self.erroralert("There is no node to connect to")
-                return None
+        if proxy is None:
+            self.erroralert("There is no node to connect to")
+            return None
 
-            song_hash = -1
-            for song in self.songs_on_list:
-                if song.name == song_name:
-                    song_hash = song.hash
-                    break
+        song_hash = -1
+        for song in self.songs_on_list:
+            if song.name == song_name:
+                song_hash = song.hash
+                break
 
-            # this cant happen
-            if song_hash == -1:
-                self.error_alert("Critical error, this should not be happening")
-                return None
+        # this cant happen
+        if song_hash == -1:
+            self.error_alert("Critical error, this should not be happening")
+            return None
 
-            succ = proxy.find_successor(song_hash)
+        audio = None
 
-            if not Utils.ping(succ) or not succ.is_song_available(song_name):
-                self.error_alert("It seems the nodes containing the song are down")
-                return None
+        while True:
+            try:
+                succ = proxy.find_successor(song_hash)
 
-            self.logger.info("Ok node h=%d has the song %s, starting comunication..." % (succ.id(), song_name))
+                if not Utils.ping(succ) or not succ.is_song_available(song_name):
+                    self.error_alert("It seems the nodes containing the song are down.... retrying")
+                    continue
 
-            location = succ.ip + ":" + str(succ.port_socket)
+                self.logger.info("Ok node h=%d has the song %s, starting comunication..." % (succ.id(), song_name))
 
-            self.logger.debug("Connecting to socket %s ..." % location)
-            socket.connect("tcp://" + location)
-            self.logger.debug("Connected!")
+                location = succ.ip + ":" + str(succ.port_socket)
 
-            socket.send(pickle.dumps(STATIC))
-            socket.recv()  # should be ok
+                self.logger.debug("Connecting to socket %s ..." % location)
 
-            socket.send(pickle.dumps(song_name))
+                with context.socket(zmq.REQ) as socket:
+                    socket.connect("tcp://" + location)
+                    self.logger.debug("Connected!")
 
-            audio = pickle.loads(socket.recv())
+                    socket.send(pickle.dumps(STATIC))
+                    socket.recv()  # should be ok
 
-            path = os.getcwd() + "/" + song_name
+                    self.logger.info("Sleeping 5 seconds....")
+                    time.sleep(5)
 
-            self.logger.info("Exporting song to %s" % path)
+                    socket.send(pickle.dumps(song_name))
 
-            audio.export(path)
+                    audio = pickle.loads(socket.recv())
 
-            self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
-            self.songs_on_playlist.add(song_name)
-            self.model.layoutChanged.emit()
+                break
 
-            self.logger.info("Downloaded song %s succesfully!" % song_name)
+            except Exception:
+                self.error_alert("Retrying the connection it seems the song can be found right know")
+
+        path = os.getcwd() + "/" + song_name
+
+        self.logger.info("Exporting song to %s" % path)
+
+        audio.export(path)
+
+        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
+        self.songs_on_playlist.add(song_name)
+        self.model.layoutChanged.emit()
+
+        self.logger.info("Downloaded song %s succesfully!" % song_name)
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
