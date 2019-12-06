@@ -1,5 +1,5 @@
 # debugging small case (if True hash of songs is name, else is big hash)
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 # log of SIZE of DHT, one common choice is 160 (using each node SHA1 encryption)
 LOG_LEN = 160
