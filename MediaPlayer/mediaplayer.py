@@ -23,18 +23,7 @@ def get_alive_nodes():
     return list(ns.list(prefix="Node:").items())
 
 
-def get_song_list():
-    alive = get_alive_nodes()
 
-    songs = set()
-
-    for name, uri in alive:
-        node = Pyro4.Proxy(uri)
-
-        if Utils.ping(node):
-            songs |= node.get_all_songs()
-
-    return songs
 
 
 def hhmmss(ms):

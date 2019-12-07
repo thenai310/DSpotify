@@ -23,8 +23,9 @@ def get_alive_nodes():
     return list(ns.list(prefix="Node:").items())
 
 
-# Network comunication sockets
-def get_song_set():
+# return set of tuples (dir, name) of local songs
+# Note local, NOT shared!!!
+def get_local_songs_tuple_set():
     s = set()
 
     for (dir, _, files) in os.walk(SONGS_DIRECTORY):
@@ -34,6 +35,22 @@ def get_song_set():
     return s
 
 
+# return set of Song
+def get_song_list():
+    alive = get_alive_nodes()
+
+    songs = set()
+
+    for name, uri in alive:
+        node = Pyro4.Proxy(uri)
+
+        if Utils.ping(node):
+            songs |= node.get_all_songs()
+
+    return songs
+
+
+# Network comunication sockets
 # send data (real data)
 def send(sock, data):
     data = pickle.dumps(data)

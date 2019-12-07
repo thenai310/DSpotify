@@ -137,7 +137,7 @@ class Node:
     # this is for loading the local songs
     # returns a set of tuples (dir, name)
     def load_local_songs(self):
-        return get_song_set()
+        return get_local_songs_tuple_set()
 
     def get_all_songs(self):
         return self.local_songs | self.shared_songs
@@ -329,78 +329,59 @@ class ThreadedServer(object):
     def manage_client(self, sock, addr):
         way_of_send_data = recieve(sock)
 
-        if way_of_send_data == STREAM:
-            pass
+        song_name = recieve(sock)
 
-            # fix this!
-            # song_name = pickle.loads(socket.recv())
-            #
-            # logger.info("sending song %s to a client" % song_name)
-            #
-            # full_path = ""
-            # for song in node.songs:
-            #     if song.name == song_name:
-            #         full_path = song.full_path
-            #         break
-            #
-            # logger.info("Loading audio ....")
-            #
-            # audio = AudioSegment.from_file(full_path)
-            #
-            # logger.debug("audio len = %d" % len(audio))
-            #
-            # blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
-            # k = 0
-            #
-            # blocks = []
-            #
-            # for i in range(0, len(audio), CHUNK_LENGTH):
-            #     blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
-            #
-            # logger.debug("ok just divided in %d blocks" % blk)
-            #
-            # socket.send(pickle.dumps(blk))
-            #
-            # new_msg = pickle.loads(socket.recv())  # this message should be asking for audio data
-            #
-            # socket.send(pickle.dumps([audio.sample_width, audio.channels, audio.frame_rate]))
-            #
-            # logger.debug("sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
-            #
-            # while blk > 0:
-            #     x = pickle.loads(socket.recv())
-            #
-            #     # have to stop connection
-            #     if x == -1:
-            #         socket.send(pickle.dumps("bye"))
-            #         break
-            #
-            #     logger.debug("Client asking for block = %d, block size = %d" % (x, len(blocks[x])))
-            #
-            #     socket.send(pickle.dumps(blocks[x]))
-            #
-            # logger.debug("succesfully send the song!")
+        self.logger.info("Sending song %s to client %s" % (song_name, addr))
+
+        all_songs = cur_pyro_node.get_all_songs()
+
+        full_path = ""
+        for song in all_songs:
+            if song.name == song_name:
+                full_path = song.full_path
+                break
+
+        self.logger.info("Loading audio ....")
+
+        audio = AudioSegment.from_file(full_path)
+
+        self.logger.debug("Audio len = %d" % len(audio))
+
+        if way_of_send_data == STREAM:
+            # streaming
+
+            blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
+
+            blocks = []
+
+            for i in range(0, len(audio), CHUNK_LENGTH):
+                blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
+
+            self.logger.debug("Ok just divided in %d blocks" % blk)
+
+            send(sock, blk)
+
+            song_data = [audio.sample_width, audio.channels, audio.frame_rate]
+            send(sock, song_data)
+
+            self.logger.debug("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
+
+            while blk > 0:
+                x = recieve(sock)
+
+                # ctrl-c detected, have to stop the connection
+                if x == -1:
+                    break
+
+                self.logger.debug("Client asking for block = %d, block size = %d" % (x, len(blocks[x])))
+
+                send(sock, blocks[x])
+
+            self.logger.debug("Succesfully send the song!")
 
         else:
             # static download
-
-            song_name = recieve(sock)
-
-            self.logger.info("Sending song %s to a client %s" % (song_name, addr))
-
-            full_path = ""
-            for song in cur_pyro_node.get_all_songs():
-                if song.name == song_name:
-                    full_path = song.full_path
-                    break
-
-            self.logger.info("Loading audio ....")
-
-            audio = AudioSegment.from_file(full_path)
-
-            self.logger.debug("Audio len = %d" % len(audio))
             self.logger.info("Sending...")
-
             send(sock, audio)
 
 
@@ -523,6 +504,8 @@ def run_jobs():
                     cur_set = node.shared_songs
                     cur_set.add(cur_song)
                     node.shared_songs = cur_set
+                    # OJOOOOOOOOO
+                    # hay q fisicamente copiar la cancion de cur_pyro_node a node
 
         cur_node.logger.info("Refreshing shared songs...")
 
@@ -545,6 +528,12 @@ def run_jobs():
             cur_set = cur_pyro_node.shared_songs
             cur_set.remove(song)
             cur_pyro_node.shared_songs = cur_set
+
+            # OJOOOOOOOOO
+            # hay q fisicamente borrar la cancion song de cur_pyro_node
+            # idea tener dos carpetas una para las canciones locales, otra para las compartidas
+            # ojo dentro de cada carpeta no hay duplicados pero una cancion x puede estar en local
+            # y shared a la vez, no es problema
 
         cur_node.logger.info("Done distributing songs")
 
