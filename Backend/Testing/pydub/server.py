@@ -1,7 +1,7 @@
 import zmq
 import pickle
 from pydub import AudioSegment
-from Backend.DHT.NetworkWorker import get_songs_set
+from Backend.DHT.Utils import get_song_set
 
 CHUNK = 10000 # time length of each CHUNK
 
@@ -11,7 +11,7 @@ context = zmq.Context()
 socket = context.socket(zmq.REP)
 socket.bind("tcp://*:5555")
 
-song_list = list(get_songs_set())
+song_list = list(get_song_set())
 
 while True:
     msg = socket.recv()

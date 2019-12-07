@@ -6,6 +6,7 @@ import Pyro4
 import sys
 import pickle
 import socket
+import os
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -15,12 +16,23 @@ sys.excepthook = Pyro4.util.excepthook
 STREAM = 1
 STATIC = 2
 
+
+# get current alive nodes
 def get_alive_nodes():
     ns = Pyro4.locateNS()
     return list(ns.list(prefix="Node:").items())
 
 
 # Network comunication sockets
+def get_song_set():
+    s = set()
+
+    for (dir, _, files) in os.walk(SONGS_DIRECTORY):
+        for name in files:
+            s.add((dir, name))
+
+    return s
+
 
 # send data (real data)
 def send(sock, data):
@@ -56,6 +68,21 @@ def get_unused_port():
         sock.bind(("", 0))
         addr, port = sock.getsockname()
         return port
+
+
+class Song:
+    def __init__(self, full_path, name, hash):
+        self.full_path = full_path
+        self.name = name
+        self.hash = hash
+
+    def __eq__(self, other):
+        return self.full_path == other.full_path and \
+               self.name == other.name and \
+               self.hash == other.hash
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
 
 
 class Utils:
@@ -118,6 +145,7 @@ class Utils:
     def debug_node(node):  #recibe un Pyro4.Proxy
         s = str.format("\nNode with hash = %d\n" % node.hash)
 
+
         try:
             if node.predecessor is None:
                 s += str.format("Predecessor hash = None\n")
@@ -127,9 +155,12 @@ class Utils:
         except CommunicationError:
             s += str.format("Predecessor hash = None (node down maybe?)\n")
 
+        s += "-" * 100 + "\n"
+
         to = list(node.finger)
 
         s += "Info on finger table entries\n"
+
         for i in range(len(to)):
             try:
                 if to[i] is None:
@@ -141,9 +172,12 @@ class Utils:
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
 
+        s += "-" * 100 + "\n"
+
         successor_list = node.successor_list
 
         s += "Info on successor list\n"
+
         for i in range(len(successor_list)):
             try:
                 if successor_list[i] is None:
@@ -155,11 +189,23 @@ class Utils:
             except CommunicationError:
                 s += str.format("i = %d, hash = None (node down maybe?)\n" % i)
 
-        s += "Info on songs\n"
+        s += "-" * 100 + "\n"
 
-        songs = node.songs
+        s += "Local songs\n"
+        songs = node.local_songs
 
         for song in songs:
             s += str.format("name = %s, hash = %d\n" % (song.name, song.hash))
+
+        s += "-" * 100 + "\n"
+
+        s += "Shared songs\n"
+
+        songs = node.shared_songs
+
+        for song in songs:
+            s += str.format("name = %s, hash = %d\n" % (song.name, song.hash))
+
+        s += "-" * 100 + "\n"
 
         return s

@@ -5,7 +5,7 @@ from pydub.playback import play
 import wave
 import sys
 
-audio = AudioSegment.from_file("../../../Songs/1.mp3")
+audio = AudioSegment.from_file("../../../Songs/8.mp3")
 # print(len(audio))
 #
 # test = pickle.dumps(audio)
@@ -26,7 +26,7 @@ audio = AudioSegment.from_file("../../../Songs/1.mp3")
 # from pydub import AudioSegment
 # from pydub.playback import play
 #
-# song = AudioSegment.from_file("../../../Songs/1.mp3")
+# song = AudioSegment.from_file("../../../Songs/8.mp3")
 #
 # while True:
 #     try:

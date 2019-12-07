@@ -1,13 +1,15 @@
-# debugging small case (if True hash of songs is name, else is big hash)
+# debugging small case (if True hash of songs is name of the song
+# please note that in this case NAME OF SONG MUST BE INTEGER,
+# else is big hash)
 DEBUG_MODE = True
 
 # log of SIZE of DHT, one common choice is 160 (using each node SHA1 encryption)
-LOG_LEN = 3
+LOG_LEN = 4
 
 # SIZE of DHT
 SIZE = 2 ** LOG_LEN
 
-# len of succesor list, note that SUCC_LIST_LEN < SIZE
+# len of successor list, note that SUCC_LIST_LEN < SIZE
 SUCC_LIST_LEN = 3
 
 # timing of jobs

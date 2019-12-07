@@ -7,7 +7,6 @@ import Pyro4
 from pydub import AudioSegment
 from Backend.DHT.Utils import *
 from Backend.DHT.Settings import *
-from Backend.DHT.NetworkWorker import get_songs_set
 from timeloop import Timeloop
 from datetime import timedelta
 
@@ -20,7 +19,7 @@ sys.excepthook = Pyro4.util.excepthook
 @Pyro4.behavior(instance_mode="single")
 class Node:
     def __init__(self, ip, port = 0, hash = None):
-        # ip and port of node
+        # ip and port of the node
         self._ip = ip
         self._port = port
 
@@ -28,20 +27,21 @@ class Node:
             self._port = get_unused_port()
 
         # node DHT data
-        self._finger = [None] * LOG_LEN
-        self._predecessor = None
-        self._successor_list = []
+        self._finger = [None] * LOG_LEN  # finger table
+        self._predecessor = None  # predecessor of node
+        self._successor_list = []  # successor list
 
-        # song list of node self
-        self._songs = set()
+        # these are songs that the node has locally but they ARE NOT shared
+        self._local_songs = set()
 
-        # port of the socket that is running on the node
+        # these are songs that the node has locally too but they ARE shared
+        self._shared_songs = set()
+
+        # port of the socket that is running on the node,
+        # will be initialized when the socket is up and running
         self._port_socket = None
 
-        # is node added to DHT
-        self._added = False
-
-        # hash of node
+        # hash of the node
         self._hash = hash
 
         if hash is None:
@@ -97,12 +97,20 @@ class Node:
     ##############################################
 
     @property
-    def songs(self):
-        return self._songs
+    def local_songs(self):
+        return self._local_songs
 
-    @songs.setter
-    def songs(self, songs):
-        self._songs = songs
+    @local_songs.setter
+    def local_songs(self, local_songs):
+        self._local_songs = local_songs
+
+    @property
+    def shared_songs(self):
+        return self._shared_songs
+
+    @shared_songs.setter
+    def shared_songs(self, shared_songs):
+        self._shared_songs = shared_songs
 
     ##############################################
 
@@ -113,16 +121,6 @@ class Node:
     @port_socket.setter
     def port_socket(self, port_socket):
         self._port_socket = port_socket
-
-    ##############################################
-
-    @property
-    def added(self):
-        return self._added
-
-    @added.setter
-    def added(self, added):
-        self._added = added
 
     ##############################################
     
@@ -136,8 +134,10 @@ class Node:
 
     ##############################################
 
+    # this is for loading the local songs
+    # returns a set of tuples (dir, name)
     def load_local_songs(self):
-        return get_songs_set()
+        return get_song_set()
 
     def is_song_available(self, song_name):
         for song in self.songs:
@@ -147,7 +147,8 @@ class Node:
         return False
 
     def set_succesor_as_self(self):
-        # this is a proxy of myself
+        # setting successor initially to a proxy of self
+        # this is called at register_node method
         self.finger[0] = Pyro4.Proxy("PYRONAME:Node:" + str(self.hash))
 
     def ping(self):
@@ -490,6 +491,58 @@ def run_jobs():
         cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
         cur_node.logger.debug(Utils.debug_node(cur_pyro_node))
 
+    @tl.job(timedelta(seconds=DISTRIBUTE_SONGS_TIME))
+    def distribute_songs():
+        cur_node.logger.info("Distributing songs ...")
+        cur_node.logger.info("Refreshing local songs...")
+
+        cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+        song_set = cur_pyro_node.load_local_songs()
+
+        for song_dir, song_name in song_set:
+            song_hash = Utils.get_hash(song_name)
+
+            if DEBUG_MODE:
+                song_hash = int(song_name.split(".")[0])
+
+            succ = cur_pyro_node.find_successor(song_hash)
+            cur_song = Song(song_dir + "/" + song_name, song_name, song_hash)
+
+            cur_set = cur_pyro_node.local_songs
+            cur_set.add(cur_song)
+            cur_pyro_node.local_songs = cur_set
+
+            for node in succ.successor_list:
+                if Utils.ping(node):
+                    cur_node.logger.info("Adding local song %s to node h=%d" % (song_name, node.hash))
+                    cur_set = node.shared_songs
+                    cur_set.add(cur_song)
+                    node.shared_songs = cur_set
+
+        cur_node.logger.info("Refreshing shared songs...")
+
+        to_remove = set()
+        for song in cur_pyro_node.shared_songs:
+            succ = cur_pyro_node.find_successor(song.hash)
+
+            found_self = False
+            for node in succ.successor_list:
+                if Utils.ping(node) and node.hash == cur_pyro_node.hash:
+                    found_self = True
+
+            if not found_self:
+                to_remove.add(song)
+
+        for song in to_remove:
+            cur_node.logger.info("Deleting shared song %s from node self"
+                                 "because it doesn't belong there anymore" % song.name)
+
+            cur_set = cur_pyro_node.shared_songs
+            cur_set.remove(song)
+            cur_pyro_node.shared_songs = cur_set
+
+        cur_node.logger.info("Done distributing songs")
+
     cur_node.logger.info("Maintenaince jobs will run now....")
     tl.start(block=True)
 
@@ -521,5 +574,8 @@ if __name__ == "__main__":
             server.listen()
 
         else:
-            auto_connect()
-            run_jobs()
+            if os.fork() > 0:
+                auto_connect()
+
+            else:
+                run_jobs()
