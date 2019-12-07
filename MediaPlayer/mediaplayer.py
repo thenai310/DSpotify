@@ -32,7 +32,7 @@ def get_song_list():
         node = Pyro4.Proxy(uri)
 
         if Utils.ping(node):
-            songs |= node.songs
+            songs |= node.get_all_songs()
 
     return songs
 
@@ -117,7 +117,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         try:
             song_list = get_song_list()
 
-        except Exception:
+        except (PyroError, OSError):
             self.error_alert("Could not refresh song list. It seems Pyro is not working")
             return None
 

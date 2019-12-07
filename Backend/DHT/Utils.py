@@ -142,8 +142,9 @@ class Utils:
         return h
 
     @staticmethod
-    def debug_node(node):  #recibe un Pyro4.Proxy
-        s = str.format("\nNode with hash = %d\n" % node.hash)
+    def debug_node(node):  # recibe un Pyro4.Proxy
+        s = "\n" + "-" * 100 + "\n"
+        s += str.format("Node with hash = %d\n" % node.hash)
 
 
         try:

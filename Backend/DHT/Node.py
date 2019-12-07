@@ -139,8 +139,13 @@ class Node:
     def load_local_songs(self):
         return get_song_set()
 
+    def get_all_songs(self):
+        return self.local_songs | self.shared_songs
+
     def is_song_available(self, song_name):
-        for song in self.songs:
+        all_songs = self.get_all_songs()
+
+        for song in all_songs:
             if song.name == song_name:
                 return True
 
@@ -384,7 +389,7 @@ class ThreadedServer(object):
             self.logger.info("Sending song %s to a client %s" % (song_name, addr))
 
             full_path = ""
-            for song in cur_pyro_node.songs:
+            for song in cur_pyro_node.get_all_songs():
                 if song.name == song_name:
                     full_path = song.full_path
                     break
