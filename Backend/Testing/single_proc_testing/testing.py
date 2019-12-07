@@ -1,4 +1,4 @@
-from Backend.DHT.Node_single_process import *
+from Backend.Testing.single_proc_testing.Node_single_process import *
 from timeloop import Timeloop
 from datetime import timedelta
 import time

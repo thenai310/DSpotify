@@ -323,6 +323,55 @@ class ThreadedServer(object):
         if way_of_send_data == STREAM:
             pass
 
+            # fix this!
+            # song_name = pickle.loads(socket.recv())
+            #
+            # logger.info("sending song %s to a client" % song_name)
+            #
+            # full_path = ""
+            # for song in node.songs:
+            #     if song.name == song_name:
+            #         full_path = song.full_path
+            #         break
+            #
+            # logger.info("Loading audio ....")
+            #
+            # audio = AudioSegment.from_file(full_path)
+            #
+            # logger.debug("audio len = %d" % len(audio))
+            #
+            # blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
+            # k = 0
+            #
+            # blocks = []
+            #
+            # for i in range(0, len(audio), CHUNK_LENGTH):
+            #     blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
+            #
+            # logger.debug("ok just divided in %d blocks" % blk)
+            #
+            # socket.send(pickle.dumps(blk))
+            #
+            # new_msg = pickle.loads(socket.recv())  # this message should be asking for audio data
+            #
+            # socket.send(pickle.dumps([audio.sample_width, audio.channels, audio.frame_rate]))
+            #
+            # logger.debug("sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
+            #
+            # while blk > 0:
+            #     x = pickle.loads(socket.recv())
+            #
+            #     # have to stop connection
+            #     if x == -1:
+            #         socket.send(pickle.dumps("bye"))
+            #         break
+            #
+            #     logger.debug("Client asking for block = %d, block size = %d" % (x, len(blocks[x])))
+            #
+            #     socket.send(pickle.dumps(blocks[x]))
+            #
+            # logger.debug("succesfully send the song!")
+
         else:
             # static download
 
