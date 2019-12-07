@@ -2,23 +2,21 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtMultimedia import *
-from Backend.DHT.Utils import Utils, STREAM, STATIC
+from Backend.DHT.Utils import *
 from Pyro4.errors import *
 from MediaPlayer.MainWindow import Ui_MainWindow
 
 import Pyro4
-import zmq
 import sys
 import pickle
 import pydub
 import os
 import time
+import socket
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
-
-context = zmq.Context()
 
 def get_alive_nodes():
     ns = Pyro4.locateNS()
@@ -149,34 +147,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if song_name in self.songs_on_playlist:
             return None
 
-        alive = get_alive_nodes()
-
-        proxy = None
-        for name, uri in alive:
-            node = Pyro4.Proxy(uri)
-
-            if Utils.ping(node):
-                proxy = node
-                break
-
-        if proxy is None:
-            self.erroralert("There is no node to connect to")
-            return None
-
-        song_hash = -1
-        for song in self.songs_on_list:
-            if song.name == song_name:
-                song_hash = song.hash
-                break
-
-        # this cant happen
-        if song_hash == -1:
-            self.error_alert("Critical error, this should not be happening")
-            return None
-
-        audio = None
-
         while True:
+            alive = get_alive_nodes()
+
+            proxy = None
+            for name, uri in alive:
+                node = Pyro4.Proxy(uri)
+
+                if Utils.ping(node):
+                    proxy = node
+                    break
+
+            if proxy is None:
+                self.erroralert("There is no node to connect to")
+                return None
+
+            song_hash = -1
+            for song in self.songs_on_list:
+                if song.name == song_name:
+                    song_hash = song.hash
+                    break
+
+            # this cant happen
+            if song_hash == -1:
+                self.error_alert("Critical error, this should not be happening")
+                return None
+
+            audio = None
+
+            self.logger.info("Talking with node h=%d" % proxy.hash)
+
             try:
                 succ = proxy.find_successor(song_hash)
 
@@ -186,28 +186,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.logger.info("Ok node h=%d has the song %s, starting comunication..." % (succ.id(), song_name))
 
-                location = succ.ip + ":" + str(succ.port_socket)
+                ip_server = succ.ip
+                port_server = succ.port_socket
 
-                self.logger.debug("Connecting to socket %s ..." % location)
+                self.logger.debug("Connecting to socket %s:%d ..." % (ip_server, port_server))
 
-                with context.socket(zmq.REQ) as socket:
-                    socket.connect("tcp://" + location)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.connect((ip_server, port_server))
                     self.logger.debug("Connected!")
 
-                    socket.send(pickle.dumps(STATIC))
-                    socket.recv()  # should be ok
+                    send(sock, STATIC)
 
-                    self.logger.info("Sleeping 5 seconds....")
-                    time.sleep(5)
+                    self.logger.debug("Sleeping 10 seconds...")
+                    time.sleep(10)
 
-                    socket.send(pickle.dumps(song_name))
-
-                    audio = pickle.loads(socket.recv())
+                    send(sock, song_name)
+                    audio = recieve(sock)
 
                 break
 
-            except Exception:
-                self.error_alert("Retrying the connection it seems the song can be found right know")
+            except (OSError, EOFError, PyroError):
+                self.error_alert("Retrying the connection it seems the song can't be found right know")
 
         path = os.getcwd() + "/" + song_name
 

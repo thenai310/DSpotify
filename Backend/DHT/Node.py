@@ -1,8 +1,10 @@
-import Pyro4
 import random
-import sys
 import argparse
-from Backend.DHT.Utils import Utils, get_alive_nodes, get_unused_port
+import os
+import threading
+import time
+from pydub import AudioSegment
+from Backend.DHT.Utils import *
 from Backend.DHT.Settings import *
 from Backend.DHT.NetworkWorker import get_songs_set
 
@@ -31,7 +33,7 @@ class Node:
         self._songs = set()
 
         # port of the socket that is running on the node
-        self.port_socket = None
+        self._port_socket = None
 
         # is node added to DHT
         self._added = False
@@ -292,6 +294,58 @@ class Node:
             self.successor_list = successors
 
 
+class ThreadedServer(object):
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.host, self.port))
+        self.logger = Utils.init_logger("Socket Logger")
+
+    def listen(self):
+        self.sock.listen(5)
+        while True:
+            client, address = self.sock.accept()
+            client.settimeout(60)
+            threading.Thread(target = self.listen_to_client,args = (client,address)).start()
+
+    def listen_to_client(self, client, address):
+        while True:
+            try:
+                self.manage_client(client, address)
+            except EOFError:
+                break
+
+    def manage_client(self, sock, addr):
+        way_of_send_data = recieve(sock)
+
+        if way_of_send_data == STREAM:
+            pass
+
+        else:
+            # static download
+
+            song_name = recieve(sock)
+
+            self.logger.info("Sending song %s to a client %s" % (song_name, addr))
+
+            full_path = ""
+            for song in cur_pyro_node.songs:
+                if song.name == song_name:
+                    full_path = song.full_path
+                    break
+
+            self.logger.info("Loading audio ....")
+
+            audio = AudioSegment.from_file(full_path)
+
+            self.logger.debug("Audio len = %d" % len(audio))
+            self.logger.info("Sending...")
+
+            send(sock, audio)
+
+
 def register_node(cur_node):
     cur_node.logger.info("Registering node...")
 
@@ -333,4 +387,18 @@ if __name__ == "__main__":
 
     cur_node = Node(args.ip, args.port, args.hash)
 
-    register_node(cur_node)
+    if os.fork() > 0:
+        # parent process
+        register_node(cur_node)
+
+    else:
+        time.sleep(2)
+
+        server = ThreadedServer(cur_node.ip, get_unused_port())
+
+        cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+        cur_pyro_node.port_socket = server.port
+        cur_node.port_socket = server.port
+
+        server.logger.info("Server for transfer songs of node is running at %s:%d" % (server.host, server.port))
+        server.listen()

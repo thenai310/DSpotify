@@ -36,6 +36,7 @@ def send(sock, data):
         sock.send(arr)
         sock.recv(BLOCK_SIZE)
 
+
 # it returns the real data
 def recieve(sock):
     blocks = pickle.loads(sock.recv(BLOCK_SIZE))
