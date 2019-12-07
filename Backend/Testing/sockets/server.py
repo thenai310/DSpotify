@@ -1,7 +1,5 @@
 import socket
 import threading
-import pickle
-from Backend.DHT.NetworkWorker import get_songs_set
 from Backend.Testing.sockets.utils import *
 
 

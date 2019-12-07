@@ -1,12 +1,10 @@
 import Pyro4
 import random
 import sys
-import zmq
-import pickle
-from Backend.DHT.Utils import Utils
+import argparse
+from Backend.DHT.Utils import Utils, get_alive_nodes, get_unused_port
 from Backend.DHT.Settings import *
 from Backend.DHT.NetworkWorker import get_songs_set
-from pydub import AudioSegment
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -16,26 +14,56 @@ sys.excepthook = Pyro4.util.excepthook
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Node:
-    def __init__(self):
-        self._hash = None
-        self._finger = None
+    def __init__(self, ip, port = 0, hash = None):
+        # ip and port of node
+        self._ip = ip
+        self._port = port
+
+        if self._port == 0:
+            self._port = get_unused_port()
+
+        # node DHT data
+        self._finger = [None] * LOG_LEN
         self._predecessor = None
-        self._logger = None
-        self._successor_list = None
-        self._proxy = None
-        self._songs = None
+        self._successor_list = []
+
+        # song list of node self
+        self._songs = set()
+
+        # port of the socket that is running on the node
         self.port_socket = None
 
         # is node added to DHT
         self._added = False
 
-    @property
-    def hash(self):
-        return self._hash
+        # hash of node
+        self._hash = hash
 
-    @hash.setter
-    def hash(self, h):
-        self._hash = h
+        if hash is None:
+            self._hash = Utils.get_hash(ip + ":" + port)
+
+        # logger of the node
+        self.logger = Utils.init_logger("Node h=%d Log" % self._hash)
+
+    ##############################################
+    
+    @property
+    def ip(self):
+        return self._ip
+
+    @ip.setter
+    def ip(self, ip):
+        self._ip = ip
+
+    @property
+    def port(self):
+        return self._port
+
+    @port.setter
+    def port(self, port):
+        self._port = port
+        
+    ##############################################
 
     @property
     def finger(self):
@@ -61,13 +89,7 @@ class Node:
     def successor_list(self, successor_list):
         self._successor_list = successor_list
 
-    @property
-    def added(self):
-        return self._added
-
-    @added.setter
-    def added(self, added):
-        self._added = added
+    ##############################################
 
     @property
     def songs(self):
@@ -77,6 +99,8 @@ class Node:
     def songs(self, songs):
         self._songs = songs
 
+    ##############################################
+
     @property
     def port_socket(self):
         return self._port_socket
@@ -85,35 +109,27 @@ class Node:
     def port_socket(self, port_socket):
         self._port_socket = port_socket
 
+    ##############################################
+
     @property
-    def ip(self):
-        return self._ip
+    def added(self):
+        return self._added
 
-    @ip.setter
-    def ip(self, ip):
-        self._ip = ip
+    @added.setter
+    def added(self, added):
+        self._added = added
 
-    def initialize(self, hash: int, proxy: Pyro4.Proxy, ip) -> None:
-        """
-        Initialize node self
-        :param hash: hash of node
-        :param proxy: proxy that identifies node
-        :return: None
-        """
-        self.hash = hash
-        self._proxy = proxy
+    ##############################################
+    
+    @property
+    def hash(self):
+        return self._hash
 
-        self.finger = [None] * LOG_LEN
-        self.successor_list = []
-        self.predecessor = None
+    @hash.setter
+    def hash(self, h):
+        self._hash = h
 
-        self._logger = Utils.init_logger("Node h=%d Log" % self.id())
-
-        self.finger[0] = proxy
-
-        # song list of node self
-        self.songs = set() # set of Song
-        self.ip = ip
+    ##############################################
 
     def load_local_songs(self):
         return get_songs_set()
@@ -124,6 +140,10 @@ class Node:
                 return True
 
         return False
+
+    def set_succesor_as_self(self):
+        # this is a proxy of myself
+        self.finger[0] = Pyro4.Proxy("PYRONAME:Node:" + str(self.hash))
 
     def ping(self):
         """
@@ -154,7 +174,7 @@ class Node:
                 self.finger[0] = other
                 return other
 
-        self._logger.error("No successor available :(")
+        self.logger.error("No successor available :(")
 
     def find_successor(self, id: int):
         """
@@ -162,7 +182,7 @@ class Node:
         :param id: identifier
         :return: Pyro4.Proxy
         """
-        self._logger.info("Finding successor of id = %d" % id)
+        self.logger.info("Finding successor of id = %d" % id)
 
         if (self.predecessor is not None) and \
            Utils.ping(self.predecessor) and \
@@ -171,7 +191,7 @@ class Node:
 
         node = self.find_predecessor(id)
 
-        self._logger.info("Done")
+        self.logger.info("Done")
         return node.successor()
 
     def find_predecessor(self, id: int):
@@ -204,7 +224,7 @@ class Node:
         :param other: node other
         :return: None
         """
-        self._logger.info("Joined to DHT using node other (h = %d)" % other.id())
+        self.logger.info("Joined to DHT using node other (h = %d)" % other.id())
 
         self.finger[0] = other.find_successor(self.id())
 
@@ -213,7 +233,7 @@ class Node:
         Stabilize node self
         :return: None
         """
-        self._logger.info("stabilizing...")
+        self.logger.info("stabilizing...")
 
         succ = self.successor()
 
@@ -236,7 +256,7 @@ class Node:
         :param other: other node
         :return: None
         """
-        self._logger.info("notifying...")
+        self.logger.info("notifying...")
 
         if self.predecessor is None or \
             not Utils.ping(self.predecessor) or \
@@ -248,7 +268,7 @@ class Node:
         Fixing fingers of node self
         :return: None
         """
-        self._logger.info("fixing fingers...")
+        self.logger.info("fixing fingers...")
 
         i = random.randint(1, LOG_LEN - 1)
         self.finger[i] = self.find_successor(self.id(1 << i))
@@ -258,7 +278,7 @@ class Node:
         Updates successor list of self
         :return: None
         """
-        self._logger.info("updating successor list....")
+        self.logger.info("updating successor list....")
 
         suc = self.successor()
 
@@ -270,3 +290,47 @@ class Node:
                 successors += suc_list
 
             self.successor_list = successors
+
+
+def register_node(cur_node):
+    cur_node.logger.info("Registering node...")
+
+    daemon = Pyro4.Daemon(cur_node.ip, cur_node.port)
+    uri = daemon.register(cur_node)
+
+    if cur_node.hash < 0 or cur_node.hash >= SIZE:
+        cur_node.logger.error("Hash of node is not in range [0, SIZE). Exiting ...")
+        exit(-1)
+
+    alive = get_alive_nodes()
+
+    for name, _uri in alive:
+        proxy = Pyro4.Proxy(_uri)
+
+        if Utils.ping(proxy):
+            if proxy.hash == cur_node.hash:
+                cur_node.logger.error("There exists other node with the same hash. Exiting ...")
+                exit(-1)
+
+    cur_node.logger.debug("Node location %s" % uri.location)
+
+    with Pyro4.locateNS() as ns:
+        ns.register("Node:" + str(cur_node.hash), uri)
+
+    cur_node.set_succesor_as_self()
+
+    cur_node.logger.info("Daemon Loop will run now ... Node is waiting for requests!")
+
+    daemon.requestLoop()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Node creation script")
+    parser.add_argument("--ip", default="127.0.0.1", type=str, help="IP address of a node, default is 127.0.0.1")
+    parser.add_argument("--port", default=0, type=int, help="Port of node, default is 0 which means random port")
+    parser.add_argument("--hash", default=None, type=int, help="Hash value of a node, default is None")
+    args = parser.parse_args()
+
+    cur_node = Node(args.ip, args.port, args.hash)
+
+    register_node(cur_node)

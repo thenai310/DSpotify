@@ -4,6 +4,8 @@ from Pyro4.errors import *
 from Backend.DHT.Settings import *
 import Pyro4
 import sys
+import pickle
+import socket
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -16,6 +18,44 @@ STATIC = 2
 def get_alive_nodes():
     ns = Pyro4.locateNS()
     return list(ns.list(prefix="Node:").items())
+
+
+# Network comunication sockets
+
+# send data (real data)
+def send(sock, data):
+    data = pickle.dumps(data)
+    blocks = (len(data) + BLOCK_SIZE - 1) // BLOCK_SIZE
+
+    sock.send(pickle.dumps(blocks))
+    msg = sock.recv(BLOCK_SIZE)
+
+    for i in range(0, len(data), BLOCK_SIZE):
+        arr = data[i:min(i + BLOCK_SIZE, len(data))]
+
+        sock.send(arr)
+        sock.recv(BLOCK_SIZE)
+
+# it returns the real data
+def recieve(sock):
+    blocks = pickle.loads(sock.recv(BLOCK_SIZE))
+    sock.send(b"ok")
+
+    data = bytearray()
+    for i in range(blocks):
+        arr = sock.recv(BLOCK_SIZE)
+        sock.send(b"ok")
+        data += arr
+
+    return pickle.loads(data)
+
+
+def get_unused_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("", 0))
+        addr, port = sock.getsockname()
+        return port
+
 
 class Utils:
     @staticmethod
