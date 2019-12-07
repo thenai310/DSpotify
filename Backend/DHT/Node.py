@@ -3,10 +3,13 @@ import argparse
 import os
 import threading
 import time
+import Pyro4
 from pydub import AudioSegment
 from Backend.DHT.Utils import *
 from Backend.DHT.Settings import *
 from Backend.DHT.NetworkWorker import get_songs_set
+from timeloop import Timeloop
+from datetime import timedelta
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -395,7 +398,7 @@ class ThreadedServer(object):
             send(sock, audio)
 
 
-def register_node(cur_node):
+def register_node():
     cur_node.logger.info("Registering node...")
 
     daemon = Pyro4.Daemon(cur_node.ip, cur_node.port)
@@ -427,6 +430,70 @@ def register_node(cur_node):
     daemon.requestLoop()
 
 
+def auto_connect():
+    cur_node.logger.info("Autoconnecting...")
+
+    connected = False
+
+    while True:
+        alive = get_alive_nodes()
+
+        for name, uri in alive:
+            if name != "Node:" + str(cur_node.hash):
+                try:
+                    other_node = Pyro4.Proxy(uri)
+
+                    cur_node.logger.info("Trying to connect with h = %d" % other_node.hash)
+
+                    cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+                    cur_pyro_node.join(other_node)
+
+                    connected = True
+
+                    cur_node.logger.info("Connected succesfully to node h = %d" % other_node.hash)
+                    return None
+
+                except CommunicationError:
+                    pass
+
+        if not connected:
+            cur_node.logger.error("Autoconnecting didnt work, maybe it is the only node on the network?")
+
+        time.sleep(1)
+
+
+def run_jobs():
+    tl = Timeloop()
+
+    @tl.job(timedelta(seconds=MAINTENANCE_JOBS_TIME))
+    def jobs():
+        cur_node.logger.info("Running stabilizing, fix_fingers and update successors on all nodes...")
+
+        cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+
+        cur_node.logger.debug("Stabilizing node h=%d..." % cur_node.hash)
+        cur_pyro_node.stabilize()
+        cur_node.logger.debug("Done stabilize node h=%d" % cur_node.hash)
+
+        cur_node.logger.debug("Fixing node h=%d..." % cur_node.hash)
+        cur_pyro_node.fix_fingers()
+        cur_node.logger.debug("Done fix fingers node h=%d" % cur_node.hash)
+
+        cur_node.logger.debug("Updating successors of node h=%d" % cur_node.hash)
+        cur_pyro_node.update_successor_list()
+        cur_node.logger.debug("Done updating successors list")
+
+        cur_node.logger.info("Done running all maintenance tasks")
+
+    @tl.job(timedelta(seconds=SHOW_CURRENT_STATUS_TIME))
+    def show_current_status():
+        cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+        cur_node.logger.debug(Utils.debug_node(cur_pyro_node))
+
+    cur_node.logger.info("Maintenaince jobs will run now....")
+    tl.start(block=True)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Node creation script")
     parser.add_argument("--ip", default="127.0.0.1", type=str, help="IP address of a node, default is 127.0.0.1")
@@ -438,16 +505,21 @@ if __name__ == "__main__":
 
     if os.fork() > 0:
         # parent process
-        register_node(cur_node)
+        register_node()
 
     else:
         time.sleep(2)
 
-        server = ThreadedServer(cur_node.ip, get_unused_port())
+        if os.fork() > 0:
+            server = ThreadedServer(cur_node.ip, get_unused_port())
 
-        cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
-        cur_pyro_node.port_socket = server.port
-        cur_node.port_socket = server.port
+            cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+            cur_pyro_node.port_socket = server.port
+            cur_node.port_socket = server.port
 
-        server.logger.info("Server for transfer songs of node is running at %s:%d" % (server.host, server.port))
-        server.listen()
+            server.logger.info("Server for transfer songs of node is running at %s:%d" % (server.host, server.port))
+            server.listen()
+
+        else:
+            auto_connect()
+            run_jobs()
