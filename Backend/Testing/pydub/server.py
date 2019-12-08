@@ -11,7 +11,7 @@ context = zmq.Context()
 socket = context.socket(zmq.REP)
 socket.bind("tcp://*:5555")
 
-song_list = list(get_local_songs_tuple_set())
+song_list = list(get_local_songs_tuple_set("SONGS_DIRECTORY_DEBUG"))
 
 while True:
     msg = socket.recv()

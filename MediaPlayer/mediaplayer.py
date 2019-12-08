@@ -14,6 +14,7 @@ import pydub
 import os
 import time
 import socket
+import zmq
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -262,21 +263,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 ip_server = succ.ip
                 port_server = succ.port_socket
+                location = ip_server + ":" + port_server
 
-                self.logger.debug("Connecting to socket %s:%d ..." % (ip_server, port_server))
+                self.logger.debug("Connecting to socket %s ..." % location)
 
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                    sock.connect((ip_server, port_server))
-                    self.logger.debug("Connected!")
+                ctx = zmq.Context()
 
-                    send(sock, STATIC)
+                with ctx.socket(zmq.DEALER) as dealer:
+                    dealer.connect("tcp://" + location)
 
-                    send(sock, song_name)
-                    audio = recieve(sock)
+                    dealer.send(pickle.dumps(song_name))
+
+                    data = bytes()
+
+                    while True:
+                        chunk = dealer.recv()
+
+                        if len(chunk) == 0:
+                            break
+
+                        data += chunk
 
                 break
 
-            except (OSError, EOFError, PyroError):
+            except (zmq.ZMQError, PyroError):
                 self.error_alert("Retrying the connection it seems the song can't be found right know")
 
         path = os.getcwd() + "/" + song_name

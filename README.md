@@ -1,36 +1,20 @@
-# DSpotify
+## DSpotify
 
-# To run the Chord implementation:
--Install the dependencies in requirements.txt
+### To run the Chord implementation:
+- Install the dependencies in requirements.txt
 
--First of all start Pyro4 name server, you do this from a terminal by typing pyro4-ns
+- First of all start Pyro4 name server, you do this executing from a terminal the bash file start_nameserver.sh
+You can specify as a parameter the ip of the name server, default is 127.0.0.1
 
--Use StartNode.py script to start a Node (DHT will be running with parameters LEN number of bits)
-this can be found in the Node class. You use the script the following way open a terminal and go to
-the root of the project folder, then execute:
-    python3 -m Backend.DHT.StartNode --hash HASHCODE
+- Check configuration file ./Backend/Settings.py for setting variables for DHT
 
-This will run a node with hash equal to HASHCODE remember HASHCODE must be less than 2 ** LEN and
-greater or equal than 0.
+- Use Node.py script to start a Node this can be found in the Node class.
+You use the script the following way open a terminal and go to the root
+of the project folder, then execute:
 
-For each new node you want to execute doit in a new terminal.
+    python3 -m Backend.DHT.Node
+    
+    These will create/start the node, start a socket on the node, and the maintenance jobs
+    will start automatically.
 
-After this in another terminal execute the NetworkWorker.py script, it runs the stabilize and
-fix fingers jobs, also shows a detailed output.
-
-Example:
-
-you will have 6 terminals:
-
-1 - this will be for the name server, just type pyro4-ns
-2 - python3 -m Backend.DHT.StartNode --hash 0
-3 - python3 -m Backend.DHT.StartNode --hash 1
-4 - python3 -m Backend.DHT.StartNode --hash 3
-5 - python3 -m Backend.DHT.StartNode --hash 6
-6 - python3 -m Backend.DHT.NetworkWorker
-
-You can also add new nodes it will work.
-
-Each script has a --help option try it!
-
-TODO: support node failures
+Please check --help option of the command for more information.

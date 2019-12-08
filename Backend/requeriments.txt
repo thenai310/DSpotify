@@ -4,7 +4,7 @@ pydub
 pyaudio
 zmq
 
-# esto es para cliente
+# client
 python-pyqt5
 python-pyqt5.qtmultimedia
 libqt5multimedia5-plugins

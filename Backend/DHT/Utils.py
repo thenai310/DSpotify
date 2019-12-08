@@ -15,6 +15,7 @@ sys.excepthook = Pyro4.util.excepthook
 # connection mode
 STREAM = 1
 STATIC = 2
+TRANSFER = 3
 
 
 # get current alive nodes
@@ -25,10 +26,10 @@ def get_alive_nodes():
 
 # return set of tuples (dir, name) of local songs
 # Note local, NOT shared!!!
-def get_local_songs_tuple_set():
+def get_local_songs_tuple_set(dir_address):
     s = set()
 
-    for (dir, _, files) in os.walk(SONGS_DIRECTORY):
+    for (dir, _, files) in os.walk(dir_address):
         for name in files:
             s.add((dir, name))
 
@@ -50,36 +51,47 @@ def get_song_list():
     return songs
 
 
-# Network comunication sockets
-# send data (real data)
-def send(sock, data):
-    data = pickle.dumps(data)
-    blocks = (len(data) + BLOCK_SIZE - 1) // BLOCK_SIZE
+# # Network comunication sockets
+# # send data (real data)
+# def send(sock, data):
+#     serialized_data = pickle.dumps(data)
+#     header = f"{len(serialized_data):<{BUFFER_SIZE}}"
+#
+#     print("send, %s real size msg = %d" % (data, len(serialized_data)))
+#
+#     while len(serialized_data) % BUFFER_SIZE > 0:
+#         serialized_data += b" "
+#
+#
+#     sock.send(header.encode() + serialized_data)
+#
+#
+# # returns real data
+# def recieve(sock):
+#     r = sock.recv(BUFFER_SIZE)
+#
+#     print("recv, len = %d" % len(r))
+#     T = int(r.decode())
+#
+#     S = 0
+#     data = bytes()
+#
+#     print("recieving, real len = %d" % T)
+#
+#     while True:
+#         recv_data = sock.recv(BUFFER_SIZE)
+#
+#         if S + BUFFER_SIZE > T:
+#             assert (0 <= S < T)
+#             data += recv_data[:T - S]
+#             break
+#
+#         data += recv_data
+#         S += BUFFER_SIZE
+#
+#     return pickle.loads(data)
 
-    sock.send(pickle.dumps(blocks))
-    msg = sock.recv(BLOCK_SIZE)
-
-    for i in range(0, len(data), BLOCK_SIZE):
-        arr = data[i:min(i + BLOCK_SIZE, len(data))]
-
-        sock.send(arr)
-        sock.recv(BLOCK_SIZE)
-
-
-# it returns the real data
-def recieve(sock):
-    blocks = pickle.loads(sock.recv(BLOCK_SIZE))
-    sock.send(b"ok")
-
-    data = bytearray()
-    for i in range(blocks):
-        arr = sock.recv(BLOCK_SIZE)
-        sock.send(b"ok")
-        data += arr
-
-    return pickle.loads(data)
-
-
+0
 def get_unused_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("", 0))

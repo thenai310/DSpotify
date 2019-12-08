@@ -1,7 +1,6 @@
 import socketserver
 import threading
 from Backend.DHT.Utils import *
-from Backend.DHT.Settings import BLOCK_SIZE
 from pydub import AudioSegment
 import zmq
 import time
@@ -9,7 +8,7 @@ from random import randint
 
 
 def handle_client(sock):
-    all_songs = list(get_local_songs_tuple_set())
+    all_songs = list(get_local_songs_tuple_set("SONGS_DIRECTORY_DEBUG"))
     path = all_songs[0][0] + "/" + all_songs[0][1]
 
     print("Loading audio ....")

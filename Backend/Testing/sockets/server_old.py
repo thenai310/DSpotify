@@ -1,7 +1,6 @@
 import socket
 import threading
 from Backend.DHT.Utils import *
-from Backend.DHT.Settings import SONGS_DIRECTORY
 from pydub import AudioSegment
 import pyaudio
 
@@ -29,7 +28,7 @@ class ThreadedServer(object):
                 break
                 
     def manage_client(self, sock, addr):
-        all_songs = list(get_local_songs_tuple_set())
+        all_songs = list(get_local_songs_tuple_set("SONGS_DIRECTORY_DEBUG"))
         path = all_songs[0][0] + "/" + all_songs[0][1]
 
         print("Loading audio ....")

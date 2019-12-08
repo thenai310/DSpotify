@@ -4,6 +4,8 @@ import os
 import threading
 import time
 import Pyro4
+import uuid
+import zmq
 from pydub import AudioSegment
 from Backend.DHT.Utils import *
 from Backend.DHT.Settings import *
@@ -45,10 +47,20 @@ class Node:
         self._hash = hash
 
         if hash is None:
-            self._hash = Utils.get_hash(ip + ":" + str(port))
+            self._hash = Utils.get_hash(self._ip + ":" + str(self._port))
 
         # logger of the node
         self.logger = Utils.init_logger("Node h=%d Log" % self._hash)
+
+        unique_identifier = str(uuid.uuid1())
+        address = os.getcwd() + "/Song_Data/" + unique_identifier
+
+        self.local_songs_dir_address = address + "/local_songs"
+        self.shared_songs_dir_address = address + "/shared_songs"
+
+        os.mkdir(address)
+        os.mkdir(self.local_songs_dir_address)
+        os.mkdir(self.shared_songs_dir_address)
 
     ##############################################
     
@@ -137,7 +149,7 @@ class Node:
     # this is for loading the local songs
     # returns a set of tuples (dir, name)
     def load_local_songs(self):
-        return get_local_songs_tuple_set()
+        return get_local_songs_tuple_set(self.local_songs_dir_address)
 
     def get_all_songs(self):
         return self.local_songs | self.shared_songs
@@ -303,35 +315,23 @@ class Node:
             self.successor_list = successors
 
 
-class ThreadedServer(object):
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((self.host, self.port))
-        self.logger = Utils.init_logger("Socket Logger")
+def zmq_server_listen(ip, port):
+    ctx = zmq.Context()
+    router = ctx.socket(zmq.ROUTER)
 
-    def listen(self):
-        self.sock.listen(5)
-        while True:
-            client, address = self.sock.accept()
-            client.settimeout(60)
-            threading.Thread(target = self.listen_to_client,args = (client,address)).start()
+    location = ip + ":" + str(port)
+    router.bind("tcp://" + location)
 
-    def listen_to_client(self, client, address):
-        while True:
-            try:
-                self.manage_client(client, address)
-            except EOFError:
-                break
+    logger = Utils.init_logger("ZMQ Server Logger")
 
-    def manage_client(self, sock, addr):
-        way_of_send_data = recieve(sock)
+    logger.info("Listening on location %s" % location)
 
-        song_name = recieve(sock)
+    while True:
+        identity, song_name = router.recv_multipart()
 
-        self.logger.info("Sending song %s to client %s" % (song_name, addr))
+        song_name = pickle.loads(song_name)
+
+        logger.info("Sending song %s to client %s" % (song_name, identity))
 
         all_songs = cur_pyro_node.get_all_songs()
 
@@ -341,48 +341,33 @@ class ThreadedServer(object):
                 full_path = song.full_path
                 break
 
-        self.logger.info("Loading audio ....")
+        logger.info("Loading audio ....")
 
         audio = AudioSegment.from_file(full_path)
 
-        self.logger.debug("Audio len = %d" % len(audio))
+        logger.debug("Audio len = %d" % len(audio))
 
-        if way_of_send_data == STREAM:
-            # streaming
+        blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
 
-            blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
+        blocks = []
 
-            blocks = []
+        for i in range(0, len(audio), CHUNK_LENGTH):
+            blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
 
-            for i in range(0, len(audio), CHUNK_LENGTH):
-                blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
+        logger.debug("Ok just divided in %d blocks" % blk)
 
-            self.logger.debug("Ok just divided in %d blocks" % blk)
+        song_data = [audio.sample_width, audio.channels, audio.frame_rate]
+        router.send_multipart([identity, pickle.dumps(song_data)])
 
-            send(sock, blk)
+        logger.debug("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
 
-            song_data = [audio.sample_width, audio.channels, audio.frame_rate]
-            send(sock, song_data)
+        for (i, segment) in enumerate(blocks):
+            data = pickle.dumps(segment)
+            router.send_multipart([identity, data])
 
-            self.logger.debug("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
+            logger.debug("Sending segment number i = %d, len = %d (in bytes)" % (i, len(data)))
 
-            while blk > 0:
-                x = recieve(sock)
-
-                # ctrl-c detected, have to stop the connection
-                if x == -1:
-                    break
-
-                self.logger.debug("Client asking for block = %d, block size = %d" % (x, len(blocks[x])))
-
-                send(sock, blocks[x])
-
-            self.logger.debug("Succesfully send the song!")
-
-        else:
-            # static download
-            self.logger.info("Sending...")
-            send(sock, audio)
+        router.send_multipart([identity, b""])
 
 
 def register_node():
@@ -501,11 +486,27 @@ def run_jobs():
             for node in succ.successor_list:
                 if Utils.ping(node):
                     cur_node.logger.info("Adding local song %s to node h=%d" % (song_name, node.hash))
+
+                    if cur_song in node.shared_songs:
+                        continue
+
                     cur_set = node.shared_songs
                     cur_set.add(cur_song)
                     node.shared_songs = cur_set
-                    # OJOOOOOOOOO
-                    # hay q fisicamente copiar la cancion de cur_pyro_node a node
+
+                    # copy song!
+                    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    #     try:
+                    #         sock.connect((node.ip, node.port_socket))
+                    #
+                    #         send(sock, TRANSFER)
+                    #
+                    #         audio = AudioSegment.from_file(cur_song.full_path)
+                    #         send(sock, audio)
+                    #     except (OSError, PyroError):
+                    #         # node is down
+                    #         pass
+
 
         cur_node.logger.info("Refreshing shared songs...")
 
@@ -560,14 +561,13 @@ if __name__ == "__main__":
         time.sleep(2)
 
         if os.fork() > 0:
-            server = ThreadedServer(cur_node.ip, get_unused_port())
+            port = get_unused_port()
 
             cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
-            cur_pyro_node.port_socket = server.port
-            cur_node.port_socket = server.port
+            cur_pyro_node.port_socket = port
+            cur_node.port_socket = port
 
-            server.logger.info("Server for transfer songs of node is running at %s:%d" % (server.host, server.port))
-            server.listen()
+            zmq_server_listen(args.ip, port)
 
         else:
             if os.fork() > 0:
