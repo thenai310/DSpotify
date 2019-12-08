@@ -58,9 +58,13 @@ class Node:
         self.local_songs_dir_address = address + "/local_songs"
         self.shared_songs_dir_address = address + "/shared_songs"
 
+
         os.mkdir(address)
         os.mkdir(self.local_songs_dir_address)
         os.mkdir(self.shared_songs_dir_address)
+
+        if DEBUG_MODE:
+            os.system("cp songs_small/*.mp3 %s" % self.local_songs_dir_address)
 
     ##############################################
     
@@ -347,22 +351,27 @@ def zmq_server_listen(ip, port):
 
         logger.debug("Audio len = %d" % len(audio))
 
-        blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
+        average = 0
+        cnt = 0
+
+        for i in range(0, len(audio), CHUNK_LENGTH):
+            serialized_seg = audio[i:min(len(audio), i + CHUNK_LENGTH)]
+            serialized_seg = pickle.dumps(serialized_seg)
+
+            average += len(serialized_seg)
+            cnt += 1
+
+        average //= cnt
+
+        serialized_audio = pickle.dumps(audio)
 
         blocks = []
 
-        for i in range(0, len(audio), CHUNK_LENGTH):
-            blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
+        for i in range(0, len(serialized_audio), average):
+            data = serialized_audio[i:min(len(serialized_audio), i + average)]
+            blocks.append(data)
 
-        logger.debug("Ok just divided in %d blocks" % blk)
-
-        song_data = [audio.sample_width, audio.channels, audio.frame_rate]
-        router.send_multipart([identity, pickle.dumps(song_data)])
-
-        logger.debug("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
-
-        for (i, segment) in enumerate(blocks):
-            data = pickle.dumps(segment)
+        for (i, data) in enumerate(blocks):
             router.send_multipart([identity, data])
 
             logger.debug("Sending segment number i = %d, len = %d (in bytes)" % (i, len(data)))
@@ -539,6 +548,8 @@ def run_jobs():
         cur_node.logger.info("Done distributing songs")
 
     cur_node.logger.info("Maintenaince jobs will run now....")
+    distribute_songs()
+
     tl.start(block=True)
 
 

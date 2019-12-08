@@ -116,8 +116,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setupUi(self)
 
-        # uic.loadUi("./MediaPlayer/mainwindow.ui", self)
-
         self.player = QMediaPlayer()
 
         self.player.error.connect(self.error_alert)
@@ -198,8 +196,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.model.layoutChanged.emit()
 
     def refresh_playlist(self, s):
+        if s is None:
+            return None
+
         path = s[0]
         song_name = s[1]
+
+        if song_name in self.songs_on_playlist:
+            return None
 
         self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
         self.songs_on_playlist.add(song_name)
@@ -248,7 +252,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.error_alert("Critical error, this should not be happening")
                 return None
 
-            audio = None
+            serialized_audio = bytes()
 
             self.logger.info("Talking with node h=%d" % proxy.hash)
 
@@ -263,7 +267,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 ip_server = succ.ip
                 port_server = succ.port_socket
-                location = ip_server + ":" + port_server
+                location = ip_server + ":" + str(port_server)
 
                 self.logger.debug("Connecting to socket %s ..." % location)
 
@@ -274,7 +278,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                     dealer.send(pickle.dumps(song_name))
 
-                    data = bytes()
+                    self.logger.info("Downloading song....")
 
                     while True:
                         chunk = dealer.recv()
@@ -282,7 +286,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         if len(chunk) == 0:
                             break
 
-                        data += chunk
+                        serialized_audio += chunk
 
                 break
 
@@ -290,6 +294,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.error_alert("Retrying the connection it seems the song can't be found right know")
 
         path = os.getcwd() + "/" + song_name
+
+        self.logger.info("Loading serialized audio...")
+
+        audio = pickle.loads(serialized_audio)
 
         self.logger.info("Exporting song to %s" % path)
 

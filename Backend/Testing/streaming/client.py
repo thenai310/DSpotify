@@ -40,7 +40,7 @@ def client_thread(ctx):
 
     print("Exporting audio...")
     id = str(uuid.uuid1())
-    audio.export("./1_copy_" + id + ".mp3", format="mp3", bitrate="192k")
+    audio.export("./1_copy_" + id + ".mp3", format="mp3", bitrate="256k")
 
 
 if __name__ == "__main__":
