@@ -45,7 +45,7 @@ class Node:
         self._hash = hash
 
         if hash is None:
-            self._hash = Utils.get_hash(ip + ":" + port)
+            self._hash = Utils.get_hash(ip + ":" + str(port))
 
         # logger of the node
         self.logger = Utils.init_logger("Node h=%d Log" % self._hash)
@@ -549,6 +549,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cur_node = Node(args.ip, args.port, args.hash)
+
+    # node will register as Pyro Daemon with args.ip and args.port as location
 
     if os.fork() > 0:
         # parent process

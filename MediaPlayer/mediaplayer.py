@@ -5,6 +5,7 @@ from PyQt5.QtMultimedia import *
 from Backend.DHT.Utils import *
 from Pyro4.errors import *
 from MediaPlayer.MainWindow import Ui_MainWindow
+from PyQt5 import uic
 
 import Pyro4
 import sys
@@ -113,6 +114,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setupUi(self)
+
+        # uic.loadUi("./MediaPlayer/mainwindow.ui", self)
 
         self.player = QMediaPlayer()
 
