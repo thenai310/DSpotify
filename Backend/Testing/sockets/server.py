@@ -3,65 +3,69 @@ import threading
 from Backend.DHT.Utils import *
 from Backend.DHT.Settings import BLOCK_SIZE
 from pydub import AudioSegment
+import zmq
+import time
+from random import randint
 
 
-class ThreadedEchoRequestHandler(socketserver.BaseRequestHandler):
-    def handle(self):
-        all_songs = list(get_local_songs_tuple_set())
-        path = all_songs[0][0] + "/" + all_songs[0][1]
+def handle_client(sock):
+    all_songs = list(get_local_songs_tuple_set())
+    path = all_songs[0][0] + "/" + all_songs[0][1]
 
-        print("Loading audio ....")
+    print("Loading audio ....")
 
-        audio = AudioSegment.from_file(path)
+    audio = AudioSegment.from_file(path)
 
-        print("Audio len = %d" % len(audio))
+    print("Audio len = %d" % len(audio))
 
-        print("Serializing Audio")
-        sr_audio = pickle.dumps(audio)
+    blk = (len(audio) + CHUNK_LENGTH - 1) // CHUNK_LENGTH
 
-        blk = (len(sr_audio) + BLOCK_SIZE - 1) // BLOCK_SIZE
+    blocks = []
 
-        blocks = []
+    for i in range(0, len(audio), CHUNK_LENGTH):
+        blocks.append(audio[i:min(len(audio), i + CHUNK_LENGTH)])
 
-        for i in range(0, len(sr_audio), BLOCK_SIZE):
-             blocks.append(audio[i:min(len(sr_audio), i + BLOCK_SIZE)])
+    print("Ok just divided in %d blocks" % blk)
 
-        print("Ok just divided in %d blocks" % blk)
+    song_data = [audio.sample_width, audio.channels, audio.frame_rate]
 
-        #send(self.request, blk)
+    for i in range(10000):
+        msg = pickle.loads(sock.recv())
+        sock.send(pickle.dumps(blk))
 
-        song_data = [audio.sample_width, audio.channels, audio.frame_rate]
-        song_data = pickle.
+        print("Doing Stuff")
 
-        # send(self.request, song_data)
+        msg = pickle.loads(sock.recv())
+        sock.send(pickle.dumps(song_data))
 
-        # print("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
+    #
+    #
+    # recieve(sock)
+    # send(sock, song_data)
+    #
+    # print("Sending %d blocks each of %d seconds at most" % (blk, CHUNK_LENGTH))
 
-        k = 0
+    # for i in range(10000):
+    #     x = recieve(sock)
+    #
+    #     # ctrl-c detected, have to stop the connection
+    #     # if x == -1:
+    #     #     send(sock, "") # nothing
+    #     #     break
+    #
+    #     r = randint(0, blk - 1)
+    #     print("Client asking for block = %d, block size = %d" % (r, len(blocks[r])))
+    #     send(sock, blocks[r])
+    #     # blk -= 1
 
-        while blk > 0:
-            x = pickle.loads(self.request.recv(BLOCK_SIZE))
-            # x = recieve(self.request)
-
-            # ctrl-c detected, have to stop the connection
-            if x == -1:
-                break
-
-            print("Client asking for block = %d, block size = %d" % (x, len(blocks[x])))
-
-            # send(self.request, blocks[x])
-            blk -= 1
-
-        print("Succesfully send the song!")
-
-
-class ThreadedEchoServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
+    # print("Succesfully send the song!")
 
 
 if __name__ == '__main__':
-    print("Listening....")
+    context = zmq.Context()
 
-    address = ('localhost', 12345)  # let the kernel give us a port
-    server = ThreadedEchoServer(address, ThreadedEchoRequestHandler)
-    server.serve_forever()
+    with context.socket(zmq.REP) as sock:
+        sock.bind("tcp://*:12345")
+
+        while True:
+            handle_client(sock)

@@ -50,6 +50,65 @@ class PlaylistModel(QAbstractListModel):
         return self.playlist.mediaCount()
 
 
+class WorkerSignals(QObject):
+    '''
+    Defines the signals available from a running worker thread.
+
+    Supported signals are:
+
+    finished
+        No data
+
+    error
+        `tuple` (exctype, value, traceback.format_exc() )
+
+    result
+        `object` data returned from processing, anything
+
+    progress
+        `int` indicating % progress
+
+    '''
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+
+class Worker(QRunnable):
+    '''
+    Worker thread
+
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+
+    :param callback: The function callback to run on this worker thread. Supplied args and
+                     kwargs will be passed through to the runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+
+    '''
+
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    @pyqtSlot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+        print("Started thread")
+        result = self.fn(*self.args, **self.kwargs)
+        print("Ended thread")
+
+        self.signals.result.emit(result)
+
+
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -61,7 +120,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.player.play()
 
         # Setup QListWidget
-        self.song_listWidget.itemDoubleClicked.connect(self.download_song)
+        self.song_listWidget.itemDoubleClicked.connect(self.parallel_download)
 
         # Setup the playlist.
         self.playlist = QMediaPlaylist()
@@ -96,6 +155,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.logger = Utils.init_logger("GUI App Logger")
 
+        self.threadpool = QThreadPool()
+        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+
         self.show()
 
     def search_song(self):
@@ -110,11 +172,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.error_alert("Could not refresh song list. It seems Pyro is not working")
             return None
 
+        self.song_listWidget.clear()
+
         if len(song_list) == 0:
             self.info_alert("There are no songs on the server at the time")
             return None
 
-        self.song_listWidget.clear()
         self.songs_on_list = song_list
 
         for song in song_list:
@@ -129,6 +192,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
 
         self.model.layoutChanged.emit()
+
+    def refresh_playlist(self, s):
+        path = s[0]
+        song_name = s[1]
+
+        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
+        self.songs_on_playlist.add(song_name)
+        self.model.layoutChanged.emit()
+
+        self.logger.info("Downloaded song %s succesfully!" % song_name)
+
+    def parallel_download(self):
+        song_name = self.song_listWidget.currentItem().text()
+
+        worker = Worker(self.download_song)
+
+        worker.signals.result.connect(self.refresh_playlist)
+
+        self.threadpool.start(worker)
 
     def download_song(self, *args):
         song_name = self.song_listWidget.currentItem().text()
@@ -148,7 +230,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     break
 
             if proxy is None:
-                self.erroralert("There is no node to connect to")
+                self.error_alert("There is no node to connect to")
                 return None
 
             song_hash = -1
@@ -186,9 +268,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                     send(sock, STATIC)
 
-                    self.logger.debug("Sleeping 10 seconds...")
-                    time.sleep(10)
-
                     send(sock, song_name)
                     audio = recieve(sock)
 
@@ -203,11 +282,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         audio.export(path)
 
-        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(path)))
-        self.songs_on_playlist.add(song_name)
-        self.model.layoutChanged.emit()
-
-        self.logger.info("Downloaded song %s succesfully!" % song_name)
+        return (path, song_name)
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
