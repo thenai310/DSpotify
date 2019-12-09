@@ -534,8 +534,7 @@ def run_jobs():
 
     # cur_node.logger.info("Maintenaince jobs will run now....")
     distribute_songs()
-
-    # tl.start(block=True)
+    tl.start(block=True)
 
 
 if __name__ == "__main__":

@@ -273,6 +273,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     sock.connect((ip_server, port_server))
                     self.logger.debug("Connected!")
 
+                    time.sleep(10)
                     send(sock, song_name)
                     audio = recieve(sock)
 
@@ -318,10 +319,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.playlistView.setCurrentIndex(ix)
 
     def error_alert(self, *args):
-        QMessageBox.critical(self, "Error", args[0], QMessageBox.Close)
+        # QMessageBox.critical(self, "Error", args[0], QMessageBox.Close)
+        self.logger.error(args[0])
 
     def info_alert(self, *args):
-        QMessageBox.information(self, "Info", args[0], QMessageBox.Ok)
+        # QMessageBox.information(self, "Info", args[0], QMessageBox.Ok)
+        self.logger.info(args[0])
 
 
 if __name__ == '__main__':
