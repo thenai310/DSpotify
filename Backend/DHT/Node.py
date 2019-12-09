@@ -52,11 +52,13 @@ class Node:
         # logger of the node
         self.logger = Utils.init_logger("Node h=%d Log" % self._hash)
 
+        self._songs_to_download = []
+
         unique_identifier = str(uuid.uuid1())
         address = os.getcwd() + "/Song_Data/" + unique_identifier
 
-        self.local_songs_dir_address = address + "/local_songs"
-        self.shared_songs_dir_address = address + "/shared_songs"
+        self._local_songs_dir_address = address + "/local_songs"
+        self._shared_songs_dir_address = address + "/shared_songs"
 
 
         os.mkdir(address)
@@ -121,12 +123,36 @@ class Node:
         self._local_songs = local_songs
 
     @property
+    def local_songs_dir_address(self):
+        return self._local_songs_dir_address
+
+    @local_songs_dir_address.setter
+    def local_songs_dir_address(self, local_songs_dir_address):
+        self._local_songs_dir_address = local_songs_dir_address
+
+    @property
+    def shared_songs_dir_address(self):
+        return self._shared_songs_dir_address
+
+    @shared_songs_dir_address.setter
+    def shared_songs_dir_address(self, shared_songs_dir_address):
+        self._shared_songs_dir_address = shared_songs_dir_address
+
+    @property
     def shared_songs(self):
         return self._shared_songs
 
     @shared_songs.setter
     def shared_songs(self, shared_songs):
         self._shared_songs = shared_songs
+
+    @property
+    def songs_to_download(self):
+        return self._songs_to_download
+
+    @songs_to_download.setter
+    def songs_to_download(self, songs_to_download):
+        self._songs_to_download = songs_to_download
 
     ##############################################
 
@@ -462,6 +488,56 @@ def run_jobs():
         cur_node.logger.info("Refreshing local songs...")
 
         cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
+
+        cur_node.logger.info("Downloading songs I need")
+        for data in cur_pyro_node.songs_to_download:
+            cur_node.logger.info("name = %s" % data[0])
+
+        for data in cur_pyro_node.songs_to_download:
+            song_name = data[0]
+            song_hash = data[1]
+            node = data[2]
+
+            if not Utils.ping(node):
+                continue
+
+            path = cur_pyro_node.shared_songs_dir_address + "/" + song_name
+
+            if not DEBUG_MODE:
+                cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node.hash, song_name))
+
+                ip_server = node.ip
+                port_server = node.port_socket
+
+                cur_node.logger.debug("Connecting to socket %s:%d ..." % (ip_server, port_server))
+
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                        sock.connect((ip_server, port_server))
+                        cur_node.logger.debug("Connected!")
+
+                        send(sock, song_name)
+                        audio = recieve(sock)
+
+                        cur_node.logger.info("Ok recieved audio!")
+
+                        cur_node.logger.info("Exporting song to %s" % path)
+
+                        audio.export(path)
+
+
+                except (OSError, EOFError, PyroError):
+                    cur_node.logger.error("Couldnt download the song... node seems to be down")
+                    continue
+
+            cur_song = Song(path, song_name, song_hash)
+
+            cur_set = node.shared_songs
+            cur_set.add(cur_song)
+            node.shared_songs = cur_set
+
+        cur_pyro_node.songs_to_download = []
+
         song_set = cur_pyro_node.load_local_songs()
 
         for song_dir, song_name in song_set:
@@ -484,23 +560,9 @@ def run_jobs():
                     if cur_song in node.shared_songs:
                         continue
 
-                    cur_set = node.shared_songs
-                    cur_set.add(cur_song)
-                    node.shared_songs = cur_set
-
-                    # copy song!
-                    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                    #     try:
-                    #         sock.connect((node.ip, node.port_socket))
-                    #
-                    #         send(sock, TRANSFER)
-                    #
-                    #         audio = AudioSegment.from_file(cur_song.full_path)
-                    #         send(sock, audio)
-                    #     except (OSError, PyroError):
-                    #         # node is down
-                    #         pass
-
+                    lst = node.songs_to_download
+                    lst.append((song_name, song_hash, node))
+                    node.songs_to_download = lst
 
         cur_node.logger.info("Refreshing shared songs...")
 
@@ -524,11 +586,8 @@ def run_jobs():
             cur_set.remove(song)
             cur_pyro_node.shared_songs = cur_set
 
-            # OJOOOOOOOOO
-            # hay q fisicamente borrar la cancion song de cur_pyro_node
-            # idea tener dos carpetas una para las canciones locales, otra para las compartidas
-            # ojo dentro de cada carpeta no hay duplicados pero una cancion x puede estar en local
-            # y shared a la vez, no es problema
+            if not DEBUG_MODE:
+                os.remove(song.full_path)
 
         cur_node.logger.info("Done distributing songs")
 

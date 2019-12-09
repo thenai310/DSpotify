@@ -263,7 +263,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.error_alert("It seems the nodes containing the song are down.... retrying")
                     continue
 
-                self.logger.info("Ok node h=%d has the song %s, starting comunication..." % (succ.id(), song_name))
+                self.logger.info("Ok node h=%d has the song %s, starting comunication..." % (succ.hash, song_name))
 
                 ip_server = succ.ip
                 port_server = succ.port_socket
@@ -273,7 +273,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     sock.connect((ip_server, port_server))
                     self.logger.debug("Connected!")
 
-                    time.sleep(10)
                     send(sock, song_name)
                     audio = recieve(sock)
 
