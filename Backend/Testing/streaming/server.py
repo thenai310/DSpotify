@@ -1,5 +1,6 @@
 import zmq
 import pickle
+import time
 from pydub import AudioSegment
 
 CHUNK_SIZE = 250000
@@ -31,9 +32,11 @@ def server_thread(ctx):
         for i in range(0, len(file), CHUNK_SIZE):
             data = file[i:min(i + CHUNK_SIZE, len(file))]
             print("sending data = %d" % len(data))
-            router.send_multipart([identity, data])
+            router.send(data, zmq.NOBLOCK)
 
-        router.send_multipart([identity, b""])
+            time.sleep(1)
+
+        router.send(b"", zmq.NOBLOCK)
 
 
 if __name__ == "__main__":

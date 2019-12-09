@@ -252,7 +252,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.error_alert("Critical error, this should not be happening")
                 return None
 
-            serialized_audio = bytes()
+            audio = None
 
             self.logger.info("Talking with node h=%d" % proxy.hash)
 
@@ -267,43 +267,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 ip_server = succ.ip
                 port_server = succ.port_socket
-                location = ip_server + ":" + str(port_server)
+                self.logger.debug("Connecting to socket %s:%d ..." % (ip_server, port_server))
 
-                self.logger.debug("Connecting to socket %s ..." % location)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.connect((ip_server, port_server))
+                    self.logger.debug("Connected!")
 
-                ctx = zmq.Context()
+                    send(sock, song_name)
+                    audio = recieve(sock)
 
-                with ctx.socket(zmq.DEALER) as dealer:
-                    dealer.connect("tcp://" + location)
-
-                    dealer.send(pickle.dumps(song_name))
-
-                    self.logger.info("Downloading song....")
-
-                    i = 0
-
-                    while True:
-                        chunk = dealer.recv()
-
-                        if len(chunk) == 0:
-                            break
-
-                        serialized_audio += chunk
-
-                        self.logger.info("Recieving block %d, len = %d" % (i, len(chunk)))
-
-                        i += 1
-
+                    self.logger.info("Ok recieved audio!")
                 break
 
-            except (zmq.ZMQError, PyroError):
+            except (OSError, EOFError, PyroError):
                 self.error_alert("Retrying the connection it seems the song can't be found right know")
 
         path = os.getcwd() + "/" + song_name
-
-        self.logger.info("Loading serialized audio...")
-
-        audio = pickle.loads(serialized_audio)
 
         self.logger.info("Exporting song to %s" % path)
 

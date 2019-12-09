@@ -6,6 +6,7 @@ import uuid
 
 def client_thread(ctx):
     dealer = ctx.socket(zmq.DEALER)
+    dealer.RCVTIMEO = 1000
     dealer.connect("tcp://127.0.0.1:6000")
     dealer.send(b"fetch")
 

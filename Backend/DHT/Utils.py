@@ -51,6 +51,36 @@ def get_song_list():
     return songs
 
 
+# Network comunication sockets
+# send data (real data)
+def send(sock, data):
+    data = pickle.dumps(data)
+    blocks = (len(data) + BUFFER_SIZE - 1) // BUFFER_SIZE
+
+    sock.send(pickle.dumps(blocks))
+    msg = sock.recv(BUFFER_SIZE)
+
+    for i in range(0, len(data), BUFFER_SIZE):
+        arr = data[i:min(i + BUFFER_SIZE, len(data))]
+
+        sock.send(arr)
+        sock.recv(BUFFER_SIZE)
+
+
+# it returns the real data
+def recieve(sock):
+    blocks = pickle.loads(sock.recv(BUFFER_SIZE))
+    sock.send(b"ok")
+
+    data = bytearray()
+    for i in range(blocks):
+        arr = sock.recv(BUFFER_SIZE)
+        sock.send(b"ok")
+        data += arr
+
+    return pickle.loads(data)
+
+
 def get_unused_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("", 0))
