@@ -376,6 +376,8 @@ def zmq_server_listen(ip, port):
 
             logger.debug("Sending segment number i = %d, len = %d (in bytes)" % (i, len(data)))
 
+            time.sleep(1)
+
         router.send_multipart([identity, b""])
 
 

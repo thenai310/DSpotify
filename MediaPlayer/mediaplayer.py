@@ -280,6 +280,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.logger.info("Downloading song....")
 
+                    i = 0
+
                     while True:
                         chunk = dealer.recv()
 
@@ -287,6 +289,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             break
 
                         serialized_audio += chunk
+
+                        self.logger.info("Recieving block %d, len = %d" % (i, len(chunk)))
+
+                        i += 1
 
                 break
 

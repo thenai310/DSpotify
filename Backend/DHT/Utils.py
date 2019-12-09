@@ -51,47 +51,6 @@ def get_song_list():
     return songs
 
 
-# # Network comunication sockets
-# # send data (real data)
-# def send(sock, data):
-#     serialized_data = pickle.dumps(data)
-#     header = f"{len(serialized_data):<{BUFFER_SIZE}}"
-#
-#     print("send, %s real size msg = %d" % (data, len(serialized_data)))
-#
-#     while len(serialized_data) % BUFFER_SIZE > 0:
-#         serialized_data += b" "
-#
-#
-#     sock.send(header.encode() + serialized_data)
-#
-#
-# # returns real data
-# def recieve(sock):
-#     r = sock.recv(BUFFER_SIZE)
-#
-#     print("recv, len = %d" % len(r))
-#     T = int(r.decode())
-#
-#     S = 0
-#     data = bytes()
-#
-#     print("recieving, real len = %d" % T)
-#
-#     while True:
-#         recv_data = sock.recv(BUFFER_SIZE)
-#
-#         if S + BUFFER_SIZE > T:
-#             assert (0 <= S < T)
-#             data += recv_data[:T - S]
-#             break
-#
-#         data += recv_data
-#         S += BUFFER_SIZE
-#
-#     return pickle.loads(data)
-
-0
 def get_unused_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("", 0))
@@ -106,12 +65,10 @@ class Song:
         self.hash = hash
 
     def __eq__(self, other):
-        return self.full_path == other.full_path and \
-               self.name == other.name and \
-               self.hash == other.hash
+        return self.name == other.name
 
     def __hash__(self):
-        return hash(tuple(sorted(self.__dict__.items())))
+        return self.hash
 
 
 class Utils:
