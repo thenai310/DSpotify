@@ -18,47 +18,58 @@ sys.excepthook = Pyro4.util.excepthook
 
 
 @Pyro4.expose
+class SongDownloader:
+    def __init__(self, path, chunk_size):
+        self.audio = AudioSegment.from_file(path)
+        self.chunk_size = chunk_size
+
+    def get_song_data(self):
+        return [self.audio.sample_width, self.audio.channels, self.audio.frame_rate]
+
+    def get_song(self, start_time):
+        for i in range(start_time, len(self.audio), self.chunk_size):
+            segment = self.audio[i:i + self.chunk_size]
+            yield segment
+
+
+@Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Node:
     def __init__(self, ip, port = 0, hash = None):
         # ip and port of the node
-        self._ip = ip
-        self._port = port
+        self.ip = ip
+        self.port = port
 
-        if self._port == 0:
-            self._port = get_unused_port()
+        if self.port == 0:
+            self.port = get_unused_port()
 
         # node DHT data
-        self._finger = [None] * LOG_LEN  # finger table
-        self._predecessor = None  # predecessor of node
-        self._successor_list = []  # successor list
+        self.finger = [None] * LOG_LEN  # finger table
+        self.predecessor = None  # predecessor of node
+        self.successor_list = []  # successor list
 
         # these are songs that the node has locally but they ARE NOT shared
-        self._local_songs = set()
+        self.local_songs = set()
 
         # these are songs that the node has locally too but they ARE shared
-        self._shared_songs = set()
-
-        # port of the socket that is running on the node,
-        # will be initialized when the socket is up and running
-        self._port_socket = None
+        self.shared_songs = set()
 
         # hash of the node
-        self._hash = hash
+        self.hash = hash
 
         if hash is None:
-            self._hash = Utils.get_hash(self._ip + ":" + str(self._port))
+            self.hash = Utils.get_hash(self.ip + ":" + str(self.port))
 
         # logger of the node
-        self.logger = Utils.init_logger("Node h=%d Log" % self._hash)
+        self.logger = Utils.init_logger("Node h=%d Log" % self.hash)
 
-        self._songs_to_download = []
+        self.songs_to_download = []
 
         unique_identifier = str(uuid.uuid1())
         address = os.getcwd() + "/Song_Data/" + unique_identifier
 
-        self._local_songs_dir_address = address + "/local_songs"
-        self._shared_songs_dir_address = address + "/shared_songs"
+        self.local_songs_dir_address = address + "/local_songs"
+        self.shared_songs_dir_address = address + "/shared_songs"
 
 
         os.mkdir(address)
@@ -72,109 +83,115 @@ class Node:
     
     @property
     def ip(self):
-        return self._ip
+        return self.__ip
 
     @ip.setter
     def ip(self, ip):
-        self._ip = ip
+        self.__ip = ip
 
     @property
     def port(self):
-        return self._port
+        return self.__port
 
     @port.setter
     def port(self, port):
-        self._port = port
+        self.__port = port
         
     ##############################################
 
     @property
     def finger(self):
-        return self._finger
+        return self.__finger
 
     @finger.setter
     def finger(self, finger):
-        self._finger = finger
+        self.__finger = finger
 
     @property
     def predecessor(self):
-        return self._predecessor
+        return self.__predecessor
 
     @predecessor.setter
     def predecessor(self, predecessor):
-        self._predecessor = predecessor
+        self.__predecessor = predecessor
 
     @property
     def successor_list(self):
-        return self._successor_list
+        return self.__successor_list
 
     @successor_list.setter
     def successor_list(self, successor_list):
-        self._successor_list = successor_list
+        self.__successor_list = successor_list
 
     ##############################################
 
     @property
     def local_songs(self):
-        return self._local_songs
+        return self.__local_songs
 
     @local_songs.setter
     def local_songs(self, local_songs):
-        self._local_songs = local_songs
+        self.__local_songs = local_songs
 
     @property
     def local_songs_dir_address(self):
-        return self._local_songs_dir_address
+        return self.__local_songs_dir_address
 
     @local_songs_dir_address.setter
     def local_songs_dir_address(self, local_songs_dir_address):
-        self._local_songs_dir_address = local_songs_dir_address
+        self.__local_songs_dir_address = local_songs_dir_address
 
     @property
     def shared_songs_dir_address(self):
-        return self._shared_songs_dir_address
+        return self.__shared_songs_dir_address
 
     @shared_songs_dir_address.setter
     def shared_songs_dir_address(self, shared_songs_dir_address):
-        self._shared_songs_dir_address = shared_songs_dir_address
+        self.__shared_songs_dir_address = shared_songs_dir_address
 
     @property
     def shared_songs(self):
-        return self._shared_songs
+        return self.__shared_songs
 
     @shared_songs.setter
     def shared_songs(self, shared_songs):
-        self._shared_songs = shared_songs
+        self.__shared_songs = shared_songs
 
     @property
     def songs_to_download(self):
-        return self._songs_to_download
+        return self.__songs_to_download
 
     @songs_to_download.setter
     def songs_to_download(self, songs_to_download):
-        self._songs_to_download = songs_to_download
-
-    ##############################################
-
-    @property
-    def port_socket(self):
-        return self._port_socket
-
-    @port_socket.setter
-    def port_socket(self, port_socket):
-        self._port_socket = port_socket
+        self.__songs_to_download = songs_to_download
 
     ##############################################
     
     @property
     def hash(self):
-        return self._hash
+        return self.__hash
 
     @hash.setter
     def hash(self, h):
-        self._hash = h
+        self.__hash = h
 
     ##############################################
+
+    def download_song(self, song_name, chunk_size):
+        assert(self.is_song_available(song_name))
+
+        all_songs = self.get_all_songs()
+
+        path = ""
+
+        for song in all_songs:
+            if song.name == song_name:
+                path = song.full_path
+                break
+
+        downloader = SongDownloader(path, chunk_size)
+        self._pyroDaemon.register(downloader)
+        return downloader
 
     # this is for loading the local songs
     # returns a set of tuples (dir, name)
@@ -345,51 +362,6 @@ class Node:
             self.successor_list = successors
 
 
-class ThreadedServer(object):
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((self.host, self.port))
-        self.logger = Utils.init_logger("Socket Logger")
-
-    def listen(self):
-        self.sock.listen(5)
-        while True:
-            client, address = self.sock.accept()
-            client.settimeout(60)
-            threading.Thread(target = self.listen_to_client,args = (client,address)).start()
-
-    def listen_to_client(self, client, address):
-        while True:
-            try:
-                self.manage_client(client, address)
-            except EOFError:
-                break
-
-    def manage_client(self, sock, addr):
-        song_name = recieve(sock)
-
-        self.logger.info("Sending song %s to client %s" % (song_name, addr))
-
-        all_songs = cur_pyro_node.get_all_songs()
-
-        full_path = ""
-        for song in all_songs:
-            if song.name == song_name:
-                full_path = song.full_path
-                break
-
-        self.logger.info("Loading audio ....")
-
-        audio = AudioSegment.from_file(full_path)
-
-        self.logger.debug("Audio len = %d" % len(audio))
-
-        self.logger.info("Sending...")
-        send(sock, audio)
-
 def register_node():
     cur_node.logger.info("Registering node...")
 
@@ -504,31 +476,19 @@ def run_jobs():
             path = cur_pyro_node.shared_songs_dir_address + "/" + song_name
 
             if not DEBUG_MODE:
+                # test!
                 cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node.hash, song_name))
 
-                ip_server = node.ip
-                port_server = node.port_socket
+                downloader = node.download_song(song_name, CHUNK_LENGTH_SERVER)
 
-                cur_node.logger.debug("Connecting to socket %s:%d ..." % (ip_server, port_server))
+                audio = AudioSegment.empty()
+                gen = downloader.get_song(0)
 
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                        sock.connect((ip_server, port_server))
-                        cur_node.logger.debug("Connected!")
+                for i, segment in enumerate(gen):
+                    cur_node.logger.info(f"Recieving segment number {i}")
+                    audio += segment
 
-                        send(sock, song_name)
-                        audio = recieve(sock)
-
-                        cur_node.logger.info("Ok recieved audio!")
-
-                        cur_node.logger.info("Exporting song to %s" % path)
-
-                        audio.export(path)
-
-
-                except (OSError, EOFError, PyroError):
-                    cur_node.logger.error("Couldnt download the song... node seems to be down")
-                    continue
+                audio.export(path)
 
             cur_song = Song(path, song_name, song_hash)
 
@@ -591,7 +551,7 @@ def run_jobs():
 
         cur_node.logger.info("Done distributing songs")
 
-    # cur_node.logger.info("Maintenaince jobs will run now....")
+    cur_node.logger.info("Maintenaince jobs will run now....")
     distribute_songs()
     tl.start(block=True)
 
@@ -615,18 +575,7 @@ if __name__ == "__main__":
         time.sleep(2)
 
         if os.fork() > 0:
-            server = ThreadedServer(cur_node.ip, get_unused_port())
-
-            cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
-            cur_pyro_node.port_socket = server.port
-            cur_node.port_socket = server.port
-
-            server.logger.info("Server for transfer songs of node is running at %s:%d" % (server.host, server.port))
-            server.listen()
+            auto_connect()
 
         else:
-            if os.fork() > 0:
-                auto_connect()
-
-            else:
-                run_jobs()
+            run_jobs()

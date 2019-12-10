@@ -24,6 +24,18 @@ def get_alive_nodes():
     return list(ns.list(prefix="Node:").items())
 
 
+def get_anyone_alive():
+    alive = get_alive_nodes()
+
+    for name, uri in alive:
+        node = Pyro4.Proxy(uri)
+
+        if Utils.ping(node):
+            return node
+
+    return None
+
+
 # return set of tuples (dir, name) of local songs
 # Note local, NOT shared!!!
 def get_local_songs_tuple_set(dir_address):

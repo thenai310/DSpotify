@@ -20,8 +20,13 @@ MAINTENANCE_JOBS_TIME = 2
 DISTRIBUTE_SONGS_TIME = 7
 SHOW_CURRENT_STATUS_TIME = 4
 
-# how much time each chunk of song has (in miliseconds)
-CHUNK_LENGTH = 500
+# how much time each chunk of song has (in miliseconds),
+# for client streaming
+CHUNK_LENGTH_CLIENT = 100
+
+# how much time each chunk of song has (in miliseconds),
+# for server file transfer
+CHUNK_LENGTH_SERVER = 30000
 
 # size of blocks (in bytes) for socket comunication
 BUFFER_SIZE = 512

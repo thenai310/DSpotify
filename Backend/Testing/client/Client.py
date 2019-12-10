@@ -1,11 +1,6 @@
-import Pyro4
-from Pyro4.errors import *
-import sys
-import pickle
-import zmq
 import pyaudio
-from pydub import AudioSegment
 from Backend.DHT.Utils import *
+import time
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -18,6 +13,8 @@ def show_song_list():
 
         if len(songs) > 0:
             break
+
+        print("Seems there is nobody alive ... retrying")
 
     print("These are all the songs on the server")
 
@@ -36,95 +33,80 @@ def show_song_list():
 
             break
 
-        except Exception:
+        except ValueError:
             pass
 
     print("Selected %s song" % songs[option].name)
 
-    proxy = None
-
-    while proxy is None:
-        alive = get_alive_nodes()
-
-        for name, uri in alive:
-            node = Pyro4.Proxy(uri)
-
-            if Utils.ping(node):
-                proxy = node
-                break
-
-    print("Hash of song is h=%d" % songs[option].hash)
-
-    succ = proxy.find_successor(songs[option].hash)
-
-    if succ.is_song_available(songs[option].name):
-        print("Ok node h=%d has your song!" % succ.id())
-        print("Downloading now...")
-
-        receiving_song(succ, songs[option].name)
-
-    else:
-        print("Failed node h=%d does not have your song ... try again later" % succ.id())
+    receiving_song(songs[option])
 
 
-def receiving_song(succ, song_name):
-    ip_server = succ.ip
-    port_server = succ.port_socket
+def receiving_song(song):
+    print("Hash of song is h=%d" % song.hash)
 
-    print("Connecting to socket %s:%d ..." % (ip_server, port_server))
+    while True:
+        node = get_anyone_alive()
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect((ip_server, port_server))
+        if node is None:
+            print("Seems there is nobody alive ... retrying")
+            continue
 
-        print("Connected!")
+        succ = node.find_successor(song.hash)
 
-        send(sock, STREAM)
+        if Utils.ping(succ) and succ.is_song_available(song.name):
+            print("Ok node h=%d has your song!" % succ.hash)
+            break
 
-        print("Sending song name = %s ..." % song_name)
+        else:
+            print("Failed, retrying...")
+            continue
 
-        send(sock, song_name)
+    print("Downloading now...")
 
-        blk = recieve(sock)
+    downloader = succ.download_song(song.name, CHUNK_LENGTH_CLIENT)
+    sample_width, channels, frame_rate = downloader.get_song_data()
 
-        print("Number of blocks to expect = %d" % blk)
+    p = pyaudio.PyAudio()
 
-        data = recieve(sock)
+    stream = p.open(format=p.get_format_from_width(sample_width),
+                    channels=channels,
+                    rate=frame_rate,
+                    output=True)
 
-        print("Just got sample width, channels and frame rate of audio")
+    cur_time = 0
 
-        # p = pyaudio.PyAudio()
-        #
-        # stream = p.open(format=p.get_format_from_width(data[0]),
-        #                 channels=data[1],
-        #                 rate=data[2],
-        #                 output=True)
+    while True:
+        try:
+            node = get_anyone_alive()
 
-        print("Playing....")
+            if node is None:
+                print("Seems there is nobody alive ... retrying")
+                continue
 
-        for i in range(blk):
-            try:
-                send(sock, i)
-                segment = recieve(sock)
-            except KeyboardInterrupt:
-                send(sock, -1)
-                break
+            succ = node.find_successor(song.hash)
 
-            # try:
-            #     stream.write(segment.raw_data)
-            #
-            # except KeyboardInterrupt:
-            #     if i < blk - 1:
-            #         send(sock, -1)
-            #
-            #     print("\nctrl-c detected stopping...")
-            #     break
+            if not Utils.ping(succ) or not succ.is_song_available(song.name):
+                print("Failed, retrying...")
+                continue
 
-            print("Recieved %d block ... %d seconds" % (i, segment.duration_seconds))
+            downloader = succ.download_song(song.name, CHUNK_LENGTH_CLIENT)
+            gen = downloader.get_song(cur_time)
 
-        # stream.stop_stream()
-        # stream.close()
-        #
-        # p.terminate()
+            print(f"Reproducing at time = {cur_time} ms")
+
+            for i, segment in enumerate(gen):
+                print(f"playing from node h={node.hash} segment number {i}, len={len(segment)} time={time.asctime()}")
+                stream.write(segment.raw_data)
+                cur_time += len(segment)
+
+            break
+        except (OSError, PyroError):
+            print("Waiting for the server to go up again...")
+
+    stream.stop_stream()
+    stream.close()
+
+    p.terminate()
 
 
 print("-" * 40 + "Test client" + "-" * 40)
