@@ -107,5 +107,5 @@ venv.bak/
 *.mp3
 
 /Song_Data
-/Songs
+/songs_big
 /songs_small
