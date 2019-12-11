@@ -1,10 +1,11 @@
-timeloop (https://github.com/sankalpjonn/timeloop)
+# this is for DHT
+timeloop
 Pyro4
 pydub
 pyaudio
 zmq
 
-# client
+# this is for client
 python-pyqt5
 python-pyqt5.qtmultimedia
 libqt5multimedia5-plugins
