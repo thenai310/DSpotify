@@ -328,6 +328,9 @@ class Node:
         """
         self.logger.info("notifying...")
 
+        if Utils.ping(other) and other.id() == self.id():
+            return None
+
         if self.predecessor is None or \
             not Utils.ping(self.predecessor) or \
             Utils.between(other.id(), self.predecessor.id(1), self.id()):
