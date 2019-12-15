@@ -14,7 +14,6 @@ import pydub
 import os
 import time
 import socket
-import zmq
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")

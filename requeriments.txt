@@ -1,11 +1,8 @@
-# this is for DHT
-timeloop
-Pyro4
-pydub
-pyaudio
-zmq
-
-# this is for client
-python-pyqt5
-python-pyqt5.qtmultimedia
+PyAudio==0.2.11
+pydub==0.23.1
+Pyro4==4.77
+serpent==1.28
+timeloop==1.0.2
+python3-pyqt5
+python3-pyqt5.qtmultimedia
 libqt5multimedia5-plugins
