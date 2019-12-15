@@ -1,10 +1,7 @@
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from PyQt5.QtMultimedia import *
 from MediaPlayer.MainWindow import Ui_MainWindow
-import Pyro4
-import sys
 from Backend.DHT.Utils import *
 from Pyro4.errors import PyroError
 import pyaudio

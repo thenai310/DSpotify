@@ -1,11 +1,7 @@
 import random
 import argparse
-import os
-import threading
 import time
-import Pyro4
 import uuid
-import zmq
 from pydub import AudioSegment
 from Backend.DHT.Utils import *
 from Backend.DHT.Settings import *
