@@ -252,7 +252,6 @@ class Node:
         :param id: identifier
         :return: Pyro4.Proxy
         """
-        self.logger.info("Finding successor of id = %d" % id)
 
         if (self.predecessor is not None) and \
            Utils.ping(self.predecessor) and \
@@ -261,7 +260,6 @@ class Node:
 
         node = self.find_predecessor(id)
 
-        self.logger.info("Done")
         return node.successor()
 
     def find_predecessor(self, id: int):
