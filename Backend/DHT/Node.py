@@ -178,7 +178,8 @@ class Node:
     ##############################################
 
     def download_song(self, song_name, chunk_size):
-        assert(self.is_song_available(song_name))
+        if not self.is_song_available(song_name):
+            return
 
         all_songs = self.get_all_songs()
 
@@ -212,7 +213,9 @@ class Node:
 
     def set_succesor_as_self(self):
         # setting successor initially to a proxy of self
-        # this is called at register_node method
+        # this is called at register_node method, also is
+        # called in successor method in case it does not find
+        # a successor
         self.finger[0] = Pyro4.Proxy("PYRONAME:Node:" + str(self.hash))
 
     def ping(self):
@@ -244,7 +247,8 @@ class Node:
                 self.finger[0] = other
                 return other
 
-        self.logger.error("No successor available :(")
+        self.logger.error("No successor available :(, setting self as successor")
+        self.set_succesor_as_self()
 
     def find_successor(self, id: int):
         """

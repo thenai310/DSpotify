@@ -7,6 +7,9 @@ import Pyro4
 import sys
 from Backend.DHT.Utils import *
 from Pyro4.errors import PyroError
+import pyaudio
+import time
+from threading import Thread
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
@@ -42,7 +45,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # Connect control buttons/slides for media player.
-        self.playButton.pressed.connect(self.get_audio_stream)
+        self.playButton.pressed.connect(self.parallel_get_audio_stream)
         # self.pauseButton.pressed.connect(self.player.pause)
         # self.stopButton.pressed.connect(self.player.stop)
         # self.volumeSlider.valueChanged.connect(self.player.setVolume)
@@ -56,7 +59,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # selection_model = self.playlistView.selectionModel()
         # selection_model.selectionChanged.connect(self.playlist_selection_changed)
 
-        self.playlist.doubleClicked.connect(self.get_audio_stream)
+        self.playlist.doubleClicked.connect(self.parallel_get_audio_stream)
 
         self.hash_list = []  # list of hashes of songs on playlist
 
@@ -71,7 +74,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.logger = Utils.init_logger("MediaPlayer Logger")
 
+        # is the audio playing
+        self.audio_playing = False
+
+        # stop current music stream
+        self.stop_music_stream = False
+
         self.show()
+
+    def closeEvent(self, QCloseEvent):
+        if self.audio_playing:
+            self.stop_music_stream = True
 
     def search_song(self):
         print(self.lineedit.text())
@@ -101,30 +114,88 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if path:
             self.playlist.addItem(path)
 
+    def parallel_get_audio_stream(self):
+        if self.audio_playing:
+            self.stop_music_stream = True
+
+            while self.audio_playing:
+                pass
+
+            self.logger.debug("Ok stopped audio successfully!")
+            self.stop_music_stream = False
+
+        t = Thread(target=self.get_audio_stream)
+        t.start()
+
     def get_audio_stream(self, *args):
+        self.audio_playing = True
+
         song_name = self.playlist.currentItem().text()
         row = self.playlist.currentRow()
-        print(f"song = {song_name}, row = {row}")
-
         song_hash = self.hash_list[row]
 
-        self.logger.info(f"song_name = {song_name}, hash = {song_hash}")
+        self.logger.debug(f"song_name = {song_name}, row = {row}, hash = {song_hash}")
 
-        node = get_anyone_alive()
+        node = None
+        stream = None
+        cur_time = 0
+        p = pyaudio.PyAudio()
 
-        if node is None:
-            self.error_alert("Could not find any alive node on the network")
-            return
+        while True:
+            try:
+                downloader = node.download_song(song_name, CHUNK_LENGTH_CLIENT)
 
-        succ = node.find_successor(song_hash)
+                if stream is None:
+                    sample_width, channels, frame_rate = downloader.get_song_data()
 
-        if Utils.ping(succ) and succ.is_song_available(song_name):
-            pass
+                    stream = p.open(format=p.get_format_from_width(sample_width),
+                                    channels=channels,
+                                    rate=frame_rate,
+                                    output=True)
 
-        else:
-            self.error_alert(f"Could not find alive node that has song {song_name}")
-            return
+                gen = downloader.get_song(cur_time)
 
+                self.logger.info(f"Reproducing at time = {cur_time} ms")
+
+                for i, segment in enumerate(gen):
+                    self.logger.debug(f"playing from node h={node.hash} segment number {i}, len={len(segment)} time={time.asctime()}")
+                    stream.write(segment.raw_data)
+
+                    if self.stop_music_stream:
+                        break
+
+                    cur_time += len(segment)
+
+                break
+
+            except (AttributeError, OSError, PyroError):
+                self.logger.error("Node that was streaming song is down ... retrying")
+
+                node = get_anyone_alive()
+
+                if node is None:
+                    continue
+
+                node = node.find_successor(song_hash)
+
+                if not Utils.ping(node) or not node.is_song_available(song_name):
+                    self.logger.error(f"Could not find node that has the song {song_name} ... retrying")
+
+                else:
+                    self.logger.info(f"Okok node h={node.hash} has the song {song_name}, It will start streaming now...")
+
+            finally:
+                if self.stop_music_stream:
+                    break
+
+        if stream is not None:
+            stream.stop_stream()
+            stream.close()
+
+        p.terminate()
+
+        self.audio_playing = False
+        self.logger.info("Played song successfully!")
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
