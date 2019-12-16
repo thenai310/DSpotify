@@ -42,54 +42,25 @@ def show_song_list():
 
 
 def receiving_song(song):
-    print("Hash of song is h=%d" % song.hash)
+    print(f"song.name = {song.name}, hash = {song.hash}")
 
-    while True:
-        node = get_anyone_alive()
-
-        if node is None:
-            print("Seems there is nobody alive ... retrying")
-            continue
-
-        succ = node.find_successor(song.hash)
-
-        if Utils.ping(succ) and succ.is_song_available(song.name):
-            print("Ok node h=%d has your song!" % succ.hash)
-            break
-
-        else:
-            print("Failed, retrying...")
-            continue
-
-    print("Downloading now...")
-
-    downloader = succ.download_song(song.name, CHUNK_LENGTH_CLIENT)
-    sample_width, channels, frame_rate = downloader.get_song_data()
-
-    p = pyaudio.PyAudio()
-
-    stream = p.open(format=p.get_format_from_width(sample_width),
-                    channels=channels,
-                    rate=frame_rate,
-                    output=True)
-
+    node = None
+    stream = None
     cur_time = 0
+    p = pyaudio.PyAudio()
 
     while True:
         try:
-            node = get_anyone_alive()
+            downloader = node.download_song(song.name, CHUNK_LENGTH_CLIENT)
 
-            if node is None:
-                print("Seems there is nobody alive ... retrying")
-                continue
+            if stream is None:
+                sample_width, channels, frame_rate = downloader.get_song_data()
 
-            succ = node.find_successor(song.hash)
+                stream = p.open(format=p.get_format_from_width(sample_width),
+                                channels=channels,
+                                rate=frame_rate,
+                                output=True)
 
-            if not Utils.ping(succ) or not succ.is_song_available(song.name):
-                print("Failed, retrying...")
-                continue
-
-            downloader = succ.download_song(song.name, CHUNK_LENGTH_CLIENT)
             gen = downloader.get_song(cur_time)
 
             print(f"Reproducing at time = {cur_time} ms")
@@ -100,11 +71,26 @@ def receiving_song(song):
                 cur_time += len(segment)
 
             break
-        except (OSError, PyroError):
-            print("Waiting for the server to go up again...")
 
-    stream.stop_stream()
-    stream.close()
+        except (AttributeError, OSError, PyroError) as e:
+            print("Node that was streaming song is down ... retrying")
+
+            node = get_anyone_alive()
+
+            if node is None:
+                continue
+
+            node = node.find_successor(song.hash)
+
+            if not Utils.ping(node) or not node.is_song_available(song.name):
+                print(f"Could not find node that has the song {song.name} ... retrying")
+
+            else:
+                print(f"Okok node h={node.hash} has the song {song.name}, It will start streaming now...")
+
+    if stream is not None:
+        stream.stop_stream()
+        stream.close()
 
     p.terminate()
 

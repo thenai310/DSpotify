@@ -30,7 +30,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3.setSpacing(6)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.lineedit = QtWidgets.QLineEdit()
-        self.searchLabel = QtWidgets.QLabel("Buscar")
+        self.searchLabel = QtWidgets.QLabel("Search")
         self.horizontalLayout_3.addRow(self.searchLabel,self.lineedit)
         self.verticalLayout.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()

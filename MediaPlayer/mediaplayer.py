@@ -43,12 +43,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Connect control buttons/slides for media player.
         self.playButton.pressed.connect(self.parallel_get_audio_stream)
-        # self.pauseButton.pressed.connect(self.player.pause)
-        # self.stopButton.pressed.connect(self.player.stop)
+        self.pauseButton.pressed.connect(self.pause_audio)
+        self.stopButton.pressed.connect(self.stop_audio)
         # self.volumeSlider.valueChanged.connect(self.player.setVolume)
 
-        # self.previousButton.pressed.connect(self.playlist.previous)
-        # self.nextButton.pressed.connect(self.playlist.next)
+        self.previousButton.pressed.connect(self.play_previous_song)
+        self.nextButton.pressed.connect(self.play_next_song)
 
         # self.model = PlaylistModel(self.playlist)
         # self.playlistView.setModel(self.model)
@@ -80,8 +80,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.show()
 
     def closeEvent(self, QCloseEvent):
-        if self.audio_playing:
-            self.stop_music_stream = True
+        self.stop_audio()
 
     def search_song(self):
         print(self.lineedit.text())
@@ -112,15 +111,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.playlist.addItem(path)
 
     def parallel_get_audio_stream(self):
-        if self.audio_playing:
-            self.stop_music_stream = True
+        if self.playlist.count() == 0:
+            return
 
-            while self.audio_playing:
-                pass
-
-            self.logger.debug("Ok stopped audio successfully!")
-            self.stop_music_stream = False
-
+        self.stop_audio()
         t = Thread(target=self.get_audio_stream)
         t.start()
 
@@ -193,6 +187,39 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.audio_playing = False
         self.logger.info("Played song successfully!")
+
+    def pause_audio(self):
+        pass
+
+    def stop_audio(self):
+        if self.audio_playing:
+            self.stop_music_stream = True
+
+            while self.audio_playing:
+                pass
+
+            self.logger.debug("Ok stopped audio successfully!")
+            self.stop_music_stream = False
+
+    def play_previous_song(self):
+        if self.playlist.count() == 0:
+            return
+
+        row = self.playlist.currentRow()
+
+        if row > 0:
+            self.playlist.setCurrentRow(row - 1)
+            self.parallel_get_audio_stream()
+
+    def play_next_song(self):
+        if self.playlist.count() == 0:
+            return
+
+        row = self.playlist.currentRow()
+
+        if row < self.playlist.count() - 1:
+            self.playlist.setCurrentRow(row + 1)
+            self.parallel_get_audio_stream()
 
     def update_duration(self, mc):
         self.timeSlider.setMaximum(self.player.duration())
