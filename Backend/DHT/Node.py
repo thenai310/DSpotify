@@ -67,7 +67,6 @@ class Node:
         self.local_songs_dir_address = address + "/local_songs"
         self.shared_songs_dir_address = address + "/shared_songs"
 
-
         os.mkdir(address)
         os.mkdir(self.local_songs_dir_address)
         os.mkdir(self.shared_songs_dir_address)
@@ -477,19 +476,22 @@ def run_jobs():
             path = cur_pyro_node.shared_songs_dir_address + "/" + song_name
 
             if not DEBUG_MODE:
-                # test!
-                cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node.hash, song_name))
+                try:
+                    cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node.hash, song_name))
 
-                downloader = node.download_song(song_name, CHUNK_LENGTH_SERVER)
+                    downloader = node.download_song(song_name, CHUNK_LENGTH_SERVER)
 
-                audio = AudioSegment.empty()
-                gen = downloader.get_song(0)
+                    audio = AudioSegment.empty()
+                    gen = downloader.get_song(0)
 
-                for i, segment in enumerate(gen):
-                    cur_node.logger.info(f"Recieving segment number {i}")
-                    audio += segment
+                    for i, segment in enumerate(gen):
+                        cur_node.logger.info(f"Recieving segment number {i}")
+                        audio += segment
 
-                audio.export(path)
+                    audio.export(path)
+                except (OSError, PyroError):
+                    cur_node.logger.error(f"Error in comunication, could not replicate song {song_name} right now")
+                    continue
 
             cur_song = Song(path, song_name, song_hash)
 

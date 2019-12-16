@@ -2,10 +2,8 @@
 # please note that in this case NAME OF SONG MUST BE INTEGER,
 # else is big hash)
 DEBUG_MODE = True
-# directory of songs (this is for debugging used only in Testing not in the actual DHT)
-SONGS_DIRECTORY_DEBUG = "./songs_small"
 
-# log of SIZE of DHT, one common choice is 160 (using each node SHA1 encryption)
+# log of SIZE of DHT, if not DEBUG MODE you should put 160 one common choice is 160 (using each node SHA1 encryption)
 LOG_LEN = 4
 
 # SIZE of DHT
