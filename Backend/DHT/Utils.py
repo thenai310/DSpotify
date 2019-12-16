@@ -4,19 +4,12 @@ from Pyro4.errors import *
 from Backend.DHT.Settings import *
 import Pyro4
 import sys
-import pickle
 import socket
 import os
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
 sys.excepthook = Pyro4.util.excepthook
-
-# connection mode
-STREAM = 1
-STATIC = 2
-TRANSFER = 3
-
 
 # get current alive nodes
 def get_alive_nodes():
@@ -61,36 +54,6 @@ def get_song_list():
             songs |= node.get_all_songs()
 
     return songs
-
-
-# Network comunication sockets
-# send data (real data)
-def send(sock, data):
-    data = pickle.dumps(data)
-    blocks = (len(data) + BUFFER_SIZE - 1) // BUFFER_SIZE
-
-    sock.send(pickle.dumps(blocks))
-    msg = sock.recv(BUFFER_SIZE)
-
-    for i in range(0, len(data), BUFFER_SIZE):
-        arr = data[i:min(i + BUFFER_SIZE, len(data))]
-
-        sock.send(arr)
-        sock.recv(BUFFER_SIZE)
-
-
-# it returns the real data
-def recieve(sock):
-    blocks = pickle.loads(sock.recv(BUFFER_SIZE))
-    sock.send(b"ok")
-
-    data = bytearray()
-    for i in range(blocks):
-        arr = sock.recv(BUFFER_SIZE)
-        sock.send(b"ok")
-        data += arr
-
-    return pickle.loads(data)
 
 
 def get_unused_port():

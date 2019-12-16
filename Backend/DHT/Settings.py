@@ -12,7 +12,7 @@ LOG_LEN = 4
 SIZE = 2 ** LOG_LEN
 
 # len of successor list, note that SUCC_LIST_LEN < SIZE
-SUCC_LIST_LEN = 3
+SUCC_LIST_LEN = LOG_LEN
 
 # timing of jobs
 JOIN_NODES_TIME = 1
@@ -27,8 +27,3 @@ CHUNK_LENGTH_CLIENT = 100
 # how much time each chunk of song has (in miliseconds),
 # for server file transfer
 CHUNK_LENGTH_SERVER = 30000
-
-# size of blocks (in bytes) for socket comunication
-BUFFER_SIZE = 512
-# size of header in bytes (the one that indicates k bits are coming!)
-HEADER_SIZE = 10
