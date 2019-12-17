@@ -6,6 +6,9 @@ DEBUG_MODE = True
 # log of SIZE of DHT, if not DEBUG MODE you should put 160 one common choice is 160 (using each node SHA1 encryption)
 LOG_LEN = 4
 
+if not DEBUG_MODE:
+    LOG_LEN = 160
+
 # SIZE of DHT
 SIZE = 2 ** LOG_LEN
 
@@ -25,3 +28,5 @@ CHUNK_LENGTH_CLIENT = 100
 # how much time each chunk of song has (in miliseconds),
 # for server file transfer
 CHUNK_LENGTH_SERVER = 30000
+
+THREADPOOL = 1000

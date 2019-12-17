@@ -4,6 +4,7 @@ import time
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
+Pyro4.config.THREADPOOL_SIZE = THREADPOOL
 sys.excepthook = Pyro4.util.excepthook
 
 

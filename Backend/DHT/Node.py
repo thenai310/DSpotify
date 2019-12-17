@@ -10,6 +10,7 @@ from datetime import timedelta
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
+Pyro4.config.THREADPOOL_SIZE = THREADPOOL
 sys.excepthook = Pyro4.util.excepthook
 
 
@@ -31,7 +32,7 @@ class SongDownloader:
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Node:
-    def __init__(self, ip, port = 0, hash = None):
+    def __init__(self, ip, port=0, hash=None, name=None):
         # ip and port of the node
         self.ip = ip
         self.port = port
@@ -59,10 +60,13 @@ class Node:
         # logger of the node
         self.logger = Utils.init_logger("Node h=%d Log" % self.hash)
 
-        self.songs_to_download = []
+        self.songs_to_download = set()
+
+        if name is None:
+            name = str(self.hash)
 
         unique_identifier = str(uuid.uuid1())
-        address = os.getcwd() + "/Song_Data/" + unique_identifier
+        address = os.getcwd() + "/Song_Data/" + unique_identifier + "_Node:" + name
 
         self.local_songs_dir_address = address + "/local_songs"
         self.shared_songs_dir_address = address + "/shared_songs"
@@ -462,24 +466,25 @@ def run_jobs():
         cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
 
         cur_node.logger.info("Downloading songs I need")
-        for data in cur_pyro_node.songs_to_download:
-            cur_node.logger.info("name = %s" % data[0])
+        for song in cur_pyro_node.songs_to_download:
+            cur_node.logger.info("name = %s" % song.name)
 
-        for data in cur_pyro_node.songs_to_download:
-            song_name = data[0]
-            song_hash = data[1]
-            node = data[2]
-
-            if not Utils.ping(node):
+        for song in cur_pyro_node.songs_to_download:
+            if song in cur_pyro_node.shared_songs:
                 continue
 
-            path = cur_pyro_node.shared_songs_dir_address + "/" + song_name
+            node_from = song.node
+
+            if not Utils.ping(node_from):
+                continue
+
+            path = cur_pyro_node.shared_songs_dir_address + "/" + song.name
 
             if not DEBUG_MODE:
                 try:
-                    cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node.hash, song_name))
+                    cur_node.logger.info("Ok node h=%d has the song %s, starting comunication..." % (node_from.hash, song.name))
 
-                    downloader = node.download_song(song_name, CHUNK_LENGTH_SERVER)
+                    downloader = node_from.download_song(song.name, CHUNK_LENGTH_SERVER)
 
                     audio = AudioSegment.empty()
                     gen = downloader.get_song(0)
@@ -490,16 +495,16 @@ def run_jobs():
 
                     audio.export(path)
                 except (OSError, PyroError):
-                    cur_node.logger.error(f"Error in comunication, could not replicate song {song_name} right now")
+                    cur_node.logger.error(f"Error in comunication, could not replicate song {song.name} right now")
                     continue
 
-            cur_song = Song(path, song_name, song_hash)
+            cur_song = Song(path, song.name, song.hash)
 
-            cur_set = node.shared_songs
+            cur_set = cur_pyro_node.shared_songs
             cur_set.add(cur_song)
-            node.shared_songs = cur_set
+            cur_pyro_node.shared_songs = cur_set
 
-        cur_pyro_node.songs_to_download = []
+        cur_pyro_node.songs_to_download = set()
 
         song_set = cur_pyro_node.load_local_songs()
 
@@ -518,13 +523,13 @@ def run_jobs():
 
             for node in succ.successor_list:
                 if Utils.ping(node):
-                    cur_node.logger.info("Adding local song %s to node h=%d" % (song_name, node.hash))
-
                     if cur_song in node.shared_songs:
                         continue
 
+                    cur_node.logger.info("Adding local song %s to node h=%d" % (song_name, node.hash))
+
                     lst = node.songs_to_download
-                    lst.append((song_name, song_hash, node))
+                    lst.add(Song("", song_name, song_hash, cur_pyro_node))
                     node.songs_to_download = lst
 
         cur_node.logger.info("Refreshing shared songs...")
@@ -542,8 +547,8 @@ def run_jobs():
                 to_remove.add(song)
 
         for song in to_remove:
-            cur_node.logger.info("Deleting shared song %s from node self"
-                                 "because it doesn't belong there anymore" % song.name)
+            cur_node.logger.info("Deleting shared song %s from node h=%d \
+                                 because it doesn't belong there anymore" % (cur_pyro_node.hash, song.name))
 
             cur_set = cur_pyro_node.shared_songs
             cur_set.remove(song)
@@ -564,9 +569,11 @@ if __name__ == "__main__":
     parser.add_argument("--ip", default="127.0.0.1", type=str, help="IP address of a node, default is 127.0.0.1")
     parser.add_argument("--port", default=0, type=int, help="Port of node, default is 0 which means random port")
     parser.add_argument("--hash", default=None, type=int, help="Hash value of a node, default is None")
+    parser.add_argument("--name", default=None, type=str, help="Name of node, to identify it easily, Default is none, \
+                                                               and the name will be the hash")
     args = parser.parse_args()
 
-    cur_node = Node(args.ip, args.port, args.hash)
+    cur_node = Node(args.ip, args.port, args.hash, args.name)
 
     # node will register as Pyro Daemon with args.ip and args.port as location
 

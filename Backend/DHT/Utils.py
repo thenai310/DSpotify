@@ -9,6 +9,7 @@ import os
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add("pickle")
+Pyro4.config.THREADPOOL_SIZE = THREADPOOL
 sys.excepthook = Pyro4.util.excepthook
 
 # get current alive nodes
@@ -64,10 +65,11 @@ def get_unused_port():
 
 
 class Song:
-    def __init__(self, full_path, name, hash):
+    def __init__(self, full_path, name, hash, who=None):
         self.full_path = full_path
         self.name = name
         self.hash = hash
+        self.node = who
 
     def __eq__(self, other):
         return self.name == other.name
