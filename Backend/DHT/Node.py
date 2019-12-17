@@ -386,6 +386,8 @@ def register_node():
                 cur_node.logger.error("There exists other node with the same hash. Exiting ...")
                 exit(-1)
 
+        proxy._pyroRelease()
+
     cur_node.logger.debug("Node location %s" % uri.location)
 
     with Pyro4.locateNS() as ns:
@@ -419,6 +421,10 @@ def auto_connect():
                     connected = True
 
                     cur_node.logger.info("Connected succesfully to node h = %d" % other_node.hash)
+
+                    other_node._pyroRelease()
+                    cur_pyro_node._pyroRelease()
+
                     return None
 
                 except CommunicationError:
@@ -452,11 +458,13 @@ def run_jobs():
         cur_node.logger.debug("Done updating successors list")
 
         cur_node.logger.info("Done running all maintenance tasks")
+        cur_pyro_node._pyroRelease()
 
     @tl.job(timedelta(seconds=SHOW_CURRENT_STATUS_TIME))
     def show_current_status():
         cur_pyro_node = Pyro4.Proxy("PYRONAME:Node:" + str(cur_node.hash))
         cur_node.logger.debug(Utils.debug_node(cur_pyro_node))
+        cur_pyro_node._pyroRelease()
 
     @tl.job(timedelta(seconds=DISTRIBUTE_SONGS_TIME))
     def distribute_songs():
@@ -558,6 +566,8 @@ def run_jobs():
                 os.remove(song.full_path)
 
         cur_node.logger.info("Done distributing songs")
+
+        cur_pyro_node._pyroRelease()
 
     cur_node.logger.info("Maintenaince jobs will run now....")
     distribute_songs()

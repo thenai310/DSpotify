@@ -27,6 +27,8 @@ def get_anyone_alive():
         if Utils.ping(node):
             return node
 
+        node._pyroRelease()
+
     return None
 
 
@@ -53,6 +55,8 @@ def get_song_list():
 
         if Utils.ping(node):
             songs |= node.get_all_songs()
+
+        node._pyroRelease()
 
     return songs
 
